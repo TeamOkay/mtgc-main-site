@@ -103,7 +103,7 @@ c('hash changed',w.games()[RR]['passHash']!=G[RR]['passHash'])
 c('plain new password not stored','newpass' not in raw())
 goto_home(w,'u2'); 
 # u5 must use new pw to join team (spectators on)
-pr5=join_from_list(w,'u5',RR); print('u5 prompted',pr5,'spectators',w.games()[RR]['spectators'],U['u5'].inner_text('body')[:200].replace('\n','|')); f5=w.frame('u5'); tab(f5,'Teams'); f5.fill('#pn','Eve'); f5.click('#jA'); w.pump(500)
+pr5=join_from_list(w,'u5',RR); print('u5 prompted',pr5,'spectators',w.games()[RR]['spectators'],U['u5'].inner_text('body')[:200].replace('\n','|')); f5=w.frame('u5'); tab(f5,'Teams'); f5.fill('#pn','Eve'); f5.evaluate("S.board.started=false;document.getElementById('jA').disabled=false"); f5.click('#jA'); w.pump(500)  # teams lock after start (see t_lock.py); unlock locally to exercise the password prompt
 U['u5'].fill('#pw','secret'); U['u5'].click('#pf button[type=submit]'); w.pump(300)
 c('old password rejected after change','not the password' in U['u5'].inner_text('#pe'))
 U['u5'].fill('#pw','newpass'); U['u5'].click('#pf button[type=submit]'); w.pump(1000)
@@ -114,7 +114,7 @@ goto_home(w,'u2')
 # ---------- 6. spectators off again locks out non-members ----------
 tab(fh,'Host'); fh.uncheck('#acc-spec'); w.pump(600)
 c('spectators off saved',w.games()[RR]['spectators'] is False)
-goto_home(w,'u3'); pr=join_from_list(w,'u3',RR); c('non-member prompted again',pr); U['u3'].click('#px'); w.pump(200)
+goto_home(w,'u3'); pr=join_from_list(w,'u3',RR); c('non-member refused: game already started (no password prompt)',(not pr) and 'started' in U['u3'].inner_text('#ov').lower()); U['u3'].click('#ok'); w.pump(200)
 
 # ---------- 7. Area Claiming ----------
 goto_home(w,'u2'); join_from_list(w,'u2',AC,pw='secret'); fa=w.frame('u2')
