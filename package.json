@@ -1,0 +1,5 @@
+{
+  "name": "transit-games",
+  "private": true,
+  "scripts": { "build": "node build.mjs", "start": "node build.mjs && npx serve public" }
+}

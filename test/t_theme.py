@@ -1,0 +1,17 @@
+from harness import *
+w=World(); c=Check()
+w.user('u1'); w.user('u2')
+G=host_game(w,'u1','rail-rush','T','pw1',host='Hana',city='boston') if 'city' in host_game.__code__.co_varnames else host_game(w,'u1','rail-rush','T','pw1',host='Hana')
+p=w.pages['u1'] if hasattr(w,'pages') else None
+print(type(p))
+def bg(x): return x.evaluate("getComputedStyle(document.body).backgroundColor")
+p=w.pages['u1']; f=w.frame('u1')
+ft=lambda: f.evaluate("document.documentElement.getAttribute('data-theme')")
+b0=bg(f); t0=p.evaluate("document.documentElement.getAttribute('data-theme')")
+p.click('#theme'); w.pump(300)
+t1=p.evaluate("document.documentElement.getAttribute('data-theme')")
+c('toggle sets a theme',t1 in('light','dark') and t1!=t0,(t0,t1))
+c('game frame follows',ft()==t1,ft()); c('frame background changed',bg(f)!=b0,(b0,bg(f)))
+p.click('#theme'); w.pump(300)
+c('toggle back',p.evaluate("document.documentElement.getAttribute('data-theme')")!=t1 and ft()!=t1)
+print(c.summary() if hasattr(c,'summary') else '')

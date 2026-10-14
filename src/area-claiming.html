@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Area Claiming</title>
+<style>
+:root{--bg:#f6f4ef;--card:#fff;--ink:#1d1d1f;--mut:#6b6b70;--line:#dcd8cf;--acc:#2f6fed;--neutral:#c9c5bb;--star:#e0a100;--warn:#fff3d6;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#17171a;--card:#232327;--ink:#f0f0f2;--mut:#9a9aa2;--line:#37373d;--neutral:#4a4a52;--acc:#6b9bff;--warn:#4a3b12}}
+:root[data-theme="dark"]{--bg:#17171a;--card:#232327;--ink:#f0f0f2;--mut:#9a9aa2;--line:#37373d;--neutral:#4a4a52;--acc:#6b9bff;--warn:#4a3b12}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--card)}
+h1{font-size:18px;margin:0}
+.me{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.stars{font-weight:700;color:var(--star)}
+nav{display:flex;gap:6px;padding:10px 16px;overflow-x:auto}
+nav.sub{padding:6px 0 0}
+nav button{border:1px solid var(--line);background:var(--card);color:var(--ink);padding:7px 14px;border-radius:999px;cursor:pointer;white-space:nowrap;font:inherit}
+nav.sub button{padding:4px 12px;font-size:13px;border-radius:8px}
+nav button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+main{padding:0 16px 24px;max-width:960px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin:10px 0}
+.card h3{margin:0 0 4px;font-size:16px}
+.alert{background:var(--warn);border-color:#e0a100}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.sp{flex:1}
+.mut{color:var(--mut);font-size:13px}
+.rw{color:var(--star);font-weight:700}
+button.b{border:1px solid var(--line);background:var(--card);color:var(--ink);padding:7px 12px;border-radius:8px;cursor:pointer;font:inherit}
+button.p{background:var(--acc);border-color:var(--acc);color:#fff}
+button.d{color:#c0392b}
+button:disabled,select:disabled{opacity:.5;cursor:default}
+input,textarea,select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 9px;width:100%}
+select.decl{width:auto;max-width:100%;background:var(--acc);color:#fff;border-color:var(--acc);font-weight:600;cursor:pointer}
+select.decl option{color:#000;background:#fff}
+.f{display:grid;gap:8px}
+.hide{display:none!important}
+#mapwrap{position:relative;border:1px solid var(--line);border-radius:12px;background:var(--card);overflow:hidden;height:min(62vh,560px);touch-action:none}
+#svg{width:100%;height:100%;display:block;cursor:grab}
+#svg path{stroke:var(--ink);stroke-width:1;vector-effect:non-scaling-stroke;stroke-opacity:.55;cursor:pointer}
+#svg path.sel{stroke-width:3;stroke-opacity:1}
+#svg path.locked{stroke-width:5;stroke-opacity:1}
+#pop{position:absolute;left:10px;bottom:10px;right:10px;max-width:340px}
+.lb{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0}
+.chip{display:flex;gap:6px;align-items:center;font-size:13px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:3px 10px}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+.pick{display:block;padding:6px 8px;border:1px solid var(--line);border-radius:8px;margin:6px 0;cursor:pointer}
+.big{font-size:26px}
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}
+.sw{width:30px;height:30px;border-radius:50%;border:2px solid var(--line);cursor:pointer;padding:0}
+.sw:disabled{opacity:.2;cursor:default}
+.tag{font-size:12px;border:1px solid var(--line);border-radius:6px;padding:1px 6px;color:var(--mut)}
+</style></head>
+<body>
+<header>
+  <h1>Area Claiming <span id="hostTag" class="mut hide">(host)</span> <span id="gl" class="mut"></span></h1>
+  <div class="me"><span id="who" class="mut"></span><span class="stars" id="bal">★ 0</span></div>
+</header>
+<nav id="nav"></nav>
+<main>
+  <div id="alerts"></div><div id="alerts2"></div>
+  <section id="t-chal">
+    <nav class="sub" id="subnav"></nav>
+    <div id="tradepop"></div>
+    <div id="undobar"></div>
+    <div id="s-hand"></div><div id="s-done" class="hide"></div><div id="s-all" class="hide"></div>
+  </section>
+  <section id="t-battle" class="hide">
+    <div class="row" style="margin:10px 0"><select id="decl" class="decl"></select><span class="mut" id="lockmsg"></span><span class="mut">Prep: <span id="prepv">10</span> min · Battle: 15 min · Border ratio needed: <span id="ratv">0.4</span></span></div>
+    <div id="fights"></div>
+  </section>
+  <section id="t-teams" class="hide"><div id="me"></div><div id="teams"></div></section>
+  <section id="t-power" class="hide"><div id="power"></div></section>
+  <section id="t-log" class="hide"><nav class="sub" id="lognav"></nav><div id="logbody"></div></section>
+  <section id="t-map" class="hide">
+    <div class="lb" id="lb"></div>
+    <div id="mapwrap"><svg id="svg"></svg><div id="pop" class="card hide"></div></div>
+    <div id="mapmsg" class="mut" style="margin-top:8px"></div>
+  </section>
+  <section id="t-host" class="hide">
+    <div class="card"><h3>Access</h3><div class="mut" id="acc-st"></div><label class="row" style="gap:8px"><input type="checkbox" id="acc-spec" style="width:auto"> Allow spectators</label><div class="mut">With spectators on, anyone can watch and the password is only needed to join a team. With it off, the password is needed to open the game at all.</div><div class="row"><button class="b" id="acc-pw">Change password</button><span class="mut" id="acc-msg"></span></div></div>
+    <div id="hostteams"></div>
+    <div class="card"><h3>Add challenge</h3>
+      <div class="f"><input id="nt" placeholder="Title"><textarea id="nd" rows="2" placeholder="Description"></textarea>
+      <input id="nr" placeholder="Reward (a number, or ? if it varies)">
+      <div class="row"><button class="b p" id="addc">Add</button><span id="editing" class="mut"></span></div></div></div>
+    <div class="card"><h3>Bulk import challenges</h3><div class="mut">One per line: Title | Description | Reward</div>
+      <textarea id="bulk" rows="4"></textarea><div class="row" style="margin-top:8px"><button class="b" id="bulkgo">Import</button></div></div>
+    <div class="card"><h3>Game settings</h3>
+      <div class="f"><div class="row"><label style="width:260px">Battle prep period (minutes)</label><input id="prep" type="number" min="0" style="width:90px"></div>
+      <div class="row"><label style="width:260px">Min. ratio of bordering regions to declare a battle (0–1)</label><input id="rat" type="number" min="0" max="1" step="0.05" style="width:90px"></div>
+      
+      <div class="row"><button class="b p" id="prepgo">Save settings</button></div></div></div>
+    <div class="card"><h3>Add battle</h3>
+      <div class="f"><input id="bt" placeholder="Title"><select id="bty"><option value="speed">Type: Speed (first to complete)</option><option value="quantity">Type: Quantity (highest score)</option></select><textarea id="bd" rows="2" placeholder="Description"></textarea>
+      <div class="row"><button class="b p" id="addb">Add</button><span id="bediting" class="mut"></span></div></div>
+      <div class="mut" style="margin-top:6px">A random battle from this list is attached to each declared battle.</div></div>
+    <div class="card"><h3>Map (KML)</h3><div class="mut">Upload a .kml file. Replaces the current map; claims are cleared. Same-name shapes are merged; area is calculated from the coordinates.</div>
+      <div class="row" style="margin-top:8px"><input type="file" id="kml" accept=".kml,.xml" style="width:auto"><button class="b d" id="clr">Reset all claims</button></div><div id="hostmsg" class="mut"></div>
+      <div id="reglist" class="mut" style="margin-top:8px"></div></div>
+    <div class="card"><h3>Reset completed challenges</h3><div class="mut">Clears every player's Completed list so those challenges return to the pool. Stars, hands and claimed regions are not changed.</div><div class="row" style="margin-top:8px"><button class="b d" id="rcc">Reset Completed Challenges</button></div></div>
+    <div class="card"><h3>End game</h3><div class="mut">Freezes the game for everyone and saves it to Past Games for every player on a team (and for you). This cannot be undone.</div><div class="row"><button class="b d" id="eg">End game</button></div><div class="mut" id="em"></div></div>
+    <h3>Battles (<span id="bn">0</span>)</h3><div id="battlelist"></div>
+    <h3>Deck (<span id="dn">0</span>)</h3><div id="decklist"></div>
+  </section>
+</main>
+<div id="modal" class="ov hide"></div>
+<div id="dlg" class="ov hide" style="z-index:60"></div>
+<script>
+const COLORS=['#e6194b','#3cb44b','#4363d8','#f58231','#911eb4','#46c2c9','#f032e6','#9a6324','#808000','#000075'];
+const S={me:null,isHost:false,deck:[],battleCat:[],fights:[],claims:{},players:{},priv:{hand:[],done:[],stars:0,earned:{},undo:[]},regions:[],tab:'chal',sub:'hand',sel:null,edit:null,bedit:null,prepMin:10,minRatio:0.4,log:[],lsub:'game',hands:{},trades:[],adj:{},tPl:'',tGive:null,tTake:null,db:null,raw:null,gid:null,game:null,members:new Set(),teams:{}};
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function dlg(msg,o){return new Promise(res=>{
+  const el=$('dlg'),inp=o.input!=null;
+  el.innerHTML=`<div class="card" style="max-width:420px;width:100%"><div style="white-space:pre-line">${esc(msg)}</div>${inp?`<input id="dlgi" value="${esc(o.input)}" style="margin-top:10px">`:''}<div class="row" style="margin-top:14px;justify-content:flex-end">${o.cancel||inp?'<button class="b" id="dlgc">Cancel</button>':''}<button class="b p" id="dlgo">OK</button></div></div>`;
+  el.classList.remove('hide');
+  const done=v=>{el.classList.add('hide');el.innerHTML='';res(v)};
+  $('dlgo').onclick=()=>done(inp?$('dlgi').value:true);
+  if($('dlgc'))$('dlgc').onclick=()=>done(inp?null:false);
+  if(inp)$('dlgi').focus();
+})}
+const ask=m=>dlg(m,{cancel:true}),tell=m=>dlg(m,{}),askText=(m,d)=>dlg(m,{input:d||''});
+const parseReward=v=>{v=String(v==null?'':v).trim();return v==='?'?'?':(Math.max(0,Math.floor(Number(v)))||0)};
+const uid=()=>Math.random().toString(36).slice(2,10);
+const myP=()=>S.players[S.me]||{};
+const myT=()=>{const t=myP().team;return t&&S.teams[t]?t:null};
+const T=id=>{const t=S.teams[id];return t?{name:t.name,color:t.color}:{name:'(removed team)',color:'#999999'}};
+const TN=id=>T(id).name,TCOL=id=>T(id).color;
+const tnd=t=>(S.teams[t.by]||t).name;
+const RO=()=>!!(S.game&&S.game.status==='ended');
+const canJoin=()=>S.isHost||S.members.has(S.me);
+const textOn=h=>{const m=/^#?([0-9a-f]{6})$/i.exec(h||'');if(!m)return'#fff';const n=parseInt(m[1],16);return(0.299*(n>>16)+0.587*((n>>8)&255)+0.114*(n&255))>150?'#111':'#fff'};
+const ro=()=>{if(RO()){tell('This game has ended and is read-only.');return true}return false};
+const needTeam=()=>{if(myT())return false;tell('Join a team in the Teams tab first.');return true};
+function syncPriv(){const t=myT(),m=t&&S.hands[t],k=t+'|'+JSON.stringify(m||null);if(k===S.lastMine)return false;S.lastMine=k;
+  S.priv=m?JSON.parse(JSON.stringify({hand:m.hand||[],done:m.done||[],stars:m.stars||0,earned:m.earned||{},undo:m.undo||[]})):{hand:[],done:[],stars:0,earned:{},undo:[]};return true}
+const fmtT=ms=>{ms=Math.max(0,Math.ceil(ms/1000));return Math.floor(ms/60)+':'+String(ms%60).padStart(2,'0')};
+let seen=new Set();try{seen=new Set(JSON.parse(localStorage.getItem('seenF')||'[]'))}catch(e){}
+const markSeen=id=>{seen.add(id);try{localStorage.setItem('seenF',JSON.stringify([...seen]))}catch(e){}};
+const openFights=()=>S.fights.filter(f=>f.status==='open');
+const fightOf=rid=>openFights().find(f=>f.region===rid);
+const unseen=()=>openFights().filter(f=>f.def.by===myT()&&!seen.has(f.id));
+
+async function init(){
+  showTabs();renderAll();
+  if(!window.TG_GID){$('who').textContent='No game selected.';return}
+  const user=await claude.use('user');
+  const rawdb=await claude.use('db');
+  if(!rawdb||!user){$('who').textContent='Sign in to play.';return}
+  S.raw=rawdb;S.gid=window.TG_GID;S.me=await user.id();
+  /* Everything this game stores lives under games/<id>/, so every path below is scoped to it. */
+  const db=S.db={doc:p=>rawdb.doc('games/'+S.gid+'/'+p),collection:p=>rawdb.collection('games/'+S.gid+'/'+p)};
+  const err=e=>console.error(e);
+  const list=(c,k,fn)=>db.collection(c).onSnapshot(q=>{S[k]=q.docs.map(d=>({id:d.id,...d.data()}));fn&&fn()},err);
+  rawdb.doc('games/'+S.gid).onSnapshot(d=>{if(!d.exists)return;
+    S.game={id:d.id,...d.data()};S.isHost=S.game.createdBy===S.me;
+    $('hostTag').classList.toggle('hide',!S.isHost);$('gl').textContent=S.game.name||'';
+    if(RO()&&S.tab==='host')S.tab='chal';
+    showTabs();renderAll();renderAccess();renderFights();renderPop();renderBattles()},err);
+  db.collection('members').onSnapshot(q=>{S.members=new Set(q.docs.map(d=>d.id));renderTeams();renderHead()},err);
+  db.collection('teams').onSnapshot(q=>{S.teams={};q.docs.forEach(d=>S.teams[d.id]=d.data());
+    if(syncPriv())renderAll();renderHead();renderLb();renderMapColors();renderPop();renderBattles();renderFights();renderTeams();renderHostTeams();renderPower();renderLog()},err);
+  list('trades','trades',()=>{renderPower();renderTradePop();renderNav()});
+  list('log','log',()=>{S.log.sort((a,b)=>b.t-a.t);renderLog()});
+  list('deck','deck',()=>{S.deckOk=1;S.deck.sort((a,b)=>(a.order||0)-(b.order||0));renderAll()});
+  list('battles','battleCat',()=>{S.battleCat.sort((a,b)=>(a.order||0)-(b.order||0));renderBattleCat()});
+  list('fights','fights',()=>{S.fights.sort((a,b)=>b.at-a.at);S.fights.forEach(normalizeFight);renderFights();renderLog()});
+  db.doc('settings/game').onSnapshot(d=>{const x=d.exists?d.data():{};S.prepMin=x.prepMin!=null?x.prepMin:10;S.minRatio=x.minRatio!=null?x.minRatio:0.4;$('prepv').textContent=S.prepMin;$('ratv').textContent=S.minRatio;[['prep',S.prepMin],['rat',S.minRatio]].forEach(([i,v])=>{if(document.activeElement!==$(i))$(i).value=v});renderBattles();renderPop();renderPower()},err);
+  db.collection('claims').onSnapshot(q=>{S.claims={};q.docs.forEach(d=>S.claims[d.id]=d.data());renderMapColors();renderLb();renderPop();renderBattles();renderPower();renderTeams()},err);
+  db.collection('players').onSnapshot(q=>{S.players={};q.docs.forEach(d=>S.players[d.id]=d.data());
+    if(!S.landed){S.landed=1;if(!myP().team&&S.tab==='chal'){S.tab='teams';showTabs()}}
+    if(syncPriv())renderAll();else renderHead();renderLb();renderBattles();renderTeams();renderHostTeams()},err);
+  db.collection('hands').onSnapshot(q=>{
+    S.hands={};q.docs.forEach(d=>S.hands[d.id]=JSON.parse(JSON.stringify(d.data())));
+    if(syncPriv())renderAll();else renderPower();renderLb();renderTeams()},err);
+  db.doc('map/main').onSnapshot(d=>{S.regions=(d.exists?(d.data().regions||[]):[]).map(normRegion);S.adj=computeAdj(S.regions);buildMap();renderBattles();renderHostRegions();renderPower()},err);
+}
+function normRegion(r0){
+  const r={...r0};
+  if(!r.polys)r.polys=r.rings?r.rings.map(o=>({o,h:[]})):[{o:r.ring,h:[]}];
+  r.area=r.polys.reduce((a,p)=>a+areaM2(p.o)-p.h.reduce((s,h)=>s+areaM2(h),0),0);
+  const big=r.polys.reduce((a,p)=>areaM2(p.o)>areaM2(a.o)?p:a,r.polys[0]);
+  r.c=[big.o.reduce((a,p)=>a+p[0],0)/big.o.length,big.o.reduce((a,p)=>a+p[1],0)/big.o.length];
+  return r;
+}
+
+/* ---------- tabs ---------- */
+function renderNav(){
+  const tabs=[['chal','Challenges'],['battle','Battles'],['map','Map'],['teams','Teams'],['power','Powerup Menu'],['log','Log']];if(S.isHost&&!RO())tabs.push(['host','Host Tools']);
+  const un=unseen().length;
+  $('nav').innerHTML=tabs.map(([k,l])=>`<button data-t="${k}" class="${S.tab===k?'on':''}">${l}${k==='battle'&&un?' 🔴':''}${k==='chal'&&unseenTrades().length?' 🔴':''}</button>`).join('');
+  $('nav').querySelectorAll('button').forEach(b=>b.onclick=()=>{S.tab=b.dataset.t;showTabs()});
+  $('subnav').innerHTML=[['hand','My Hand'],['done','Completed'],['all','All Challenges']].map(([k,l])=>`<button data-s="${k}" class="${S.sub===k?'on':''}">${l}</button>`).join('');
+  $('subnav').querySelectorAll('button').forEach(b=>b.onclick=()=>{S.sub=b.dataset.s;showTabs()});
+}
+function showTabs(){
+  renderNav();
+  ['chal','battle','map','teams','power','log','host'].forEach(k=>$('t-'+k).classList.toggle('hide',k!==S.tab));
+  ['hand','done','all'].forEach(k=>$('s-'+k).classList.toggle('hide',k!==S.sub));
+  if(S.tab==='map')buildMap();
+  if(S.tab==='log')renderLog();
+}
+
+/* ---------- team state ---------- */
+async function savePriv(){
+  const t=myT();if(!t)return;
+  await S.db.doc('hands/'+t).set(S.priv);
+}
+function draw(){
+  if(ro()||needTeam())return;
+  if(S.priv.hand.length>=HAND)return tell(`Your hand is full (${HAND}/${HAND}). Complete or discard a challenge first.`);
+  const id=drawOne(S.priv,[],myT());
+  if(id==null)return tell(`No challenges left to draw: the deck has ${S.deck.length}, your team holds ${S.priv.hand.length} and has completed ${S.priv.done.length}. The host can add more in Host Tools.`);
+  pushUndo({a:'draw',id});savePriv();
+}
+function discard(id){if(ro()||needTeam())return;lg('discard',[myT()],{title:ttl(id)});S.priv.hand=S.priv.hand.filter(x=>x!==id);pushUndo({a:'discard',id});savePriv()}
+
+/* ---------- render: challenges ---------- */
+function renderHead(){
+  const t=myT();
+  $('who').innerHTML=t?`<span class="dot" style="background:${esc(TCOL(t))}"></span> ${esc(TN(t))}${myP().name?' · '+esc(myP().name):''}`:(S.game?(canJoin()?'No team yet':'Watching'):'');
+  $('bal').textContent='★ '+S.priv.stars;$('bal').classList.toggle('hide',!t);
+}
+const chal=(c,btns,badge)=>`<div class="card"><div class="row"><h3 class="sp">${esc(c.title)}</h3>${badge?`<span class="tag">${badge}</span>`:''}<span class="rw">★ ${esc(c.reward)}</span></div><div>${esc(c.description)}</div>${btns?`<div class="row" style="margin-top:10px">${btns}</div>`:''}</div>`;
+function renderHand(){
+  const used=new Set([...S.priv.hand,...S.priv.done]);const pool=S.deck.filter(c=>!used.has(c.id)).length;
+  const cards=S.priv.hand.map(id=>S.deck.find(c=>c.id===id)).filter(Boolean);
+  $('s-hand').innerHTML=`<div class="row" style="margin:10px 0"><h3 class="sp" style="margin:0">Your team's hand (${cards.length}/${HAND})</h3><span class="mut">${pool} in pool</span><button class="b p" id="drawb" ${S.deck.length&&myT()&&!RO()?'':'disabled'}>Draw challenge</button></div>`
+   +(cards.map(c=>chal(c,`<button class="b p" data-c="${c.id}">Complete</button><button class="b" data-d="${c.id}">Discard</button>`)).join('')||(myT()?'<div class="card mut">Your team has no challenges in hand. Draw one.</div>':'<div class="card mut">Join a team in the Teams tab to get a hand.</div>'));
+  $('drawb').onclick=draw;
+  $('s-hand').querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>showComplete(b.dataset.c));
+  $('s-hand').querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>discard(b.dataset.d));
+}
+function renderDone(){
+  const cards=S.priv.done.map(id=>S.deck.find(c=>c.id===id)).filter(Boolean);
+  $('s-done').innerHTML=`<h3>Completed (${cards.length})</h3>`+(cards.map(c=>chal(c,'',c.reward==='?'&&S.priv.earned&&S.priv.earned[c.id]!=null?'earned ★ '+S.priv.earned[c.id]:'')).join('')||'<div class="card mut">Nothing completed yet.</div>');
+}
+function renderAllCh(){
+  $('s-all').innerHTML=`<h3>All challenges (${S.deck.length})</h3>`+(S.deck.map(c=>chal(c,'',S.priv.hand.includes(c.id)?'In your hand':S.priv.done.includes(c.id)?'Completed':'')).join('')||'<div class="card mut">No challenges yet.</div>');
+}
+function renderDeck(){
+  $('dn').textContent=S.deck.length;
+  $('decklist').innerHTML=S.deck.map(c=>chal(c,`<button class="b" data-e="${c.id}">Edit</button><button class="b d" data-x="${c.id}">Delete</button>`)).join('');
+  $('decklist').querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>{const c=S.deck.find(x=>x.id===b.dataset.e);S.edit=c.id;$('nt').value=c.title;$('nd').value=c.description;$('nr').value=c.reward;$('addc').textContent='Save';$('editing').textContent='Editing…';scrollTo(0,0)});
+  $('decklist').querySelectorAll('[data-x]').forEach(b=>b.onclick=async()=>{if(await ask('Delete this challenge?'))S.db.doc('deck/'+b.dataset.x).delete()});
+}
+function renderAll(){$('alerts2').innerHTML=RO()?'<div class="card alert"><b>This game has ended.</b> It is read-only.</div>':'';renderTeams();renderHostTeams();renderHead();renderHand();renderDone();renderAllCh();renderDeck();renderBattleCat();renderPower();renderTradePop();renderUndo()}
+
+/* ---------- host: deck / battles / settings ---------- */
+$('addc').onclick=async()=>{
+  const t=$('nt').value.trim();if(!t)return;
+  const o={title:t,description:$('nd').value.trim(),reward:parseReward($('nr').value)};
+  if(S.edit){await S.db.doc('deck/'+S.edit).update(o)}else{o.order=Date.now();await S.db.doc('deck/'+uid()).set(o)}
+  S.edit=null;['nt','nd','nr'].forEach(i=>$(i).value='');$('addc').textContent='Add';$('editing').textContent='';
+};
+$('bulkgo').onclick=async()=>{
+  const lines=$('bulk').value.split('\n').map(l=>l.trim()).filter(Boolean);let n=Date.now();
+  for(const l of lines){const [t,d,r]=l.split('|').map(s=>s.trim());if(!t)continue;await S.db.doc('deck/'+uid()).set({title:t,description:d||'',reward:parseReward(r),order:n++})}
+  $('bulk').value='';
+};
+$('prepgo').onclick=()=>S.db.doc('settings/game').set({prepMin:Math.max(0,Number($('prep').value)||0),minRatio:Math.min(1,Math.max(0,Number($('rat').value)||0))});
+$('addb').onclick=async()=>{
+  const t=$('bt').value.trim();if(!t)return;const o={title:t,description:$('bd').value.trim(),type:$('bty').value};
+  if(S.bedit){await S.db.doc('battles/'+S.bedit).update(o)}else{o.order=Date.now();await S.db.doc('battles/'+uid()).set(o)}
+  S.bedit=null;$('bt').value='';$('bd').value='';$('addb').textContent='Add';$('bediting').textContent='';
+};
+function renderBattleCat(){
+  $('bn').textContent=S.battleCat.length;
+  $('battlelist').innerHTML=S.battleCat.map(b=>`<div class="card"><div class="row"><h3 class="sp">${esc(b.title)}</h3><span class="tag">${esc(b.type||'speed')}</span><span class="tag">used ${S.fights.filter(f=>f.battle&&f.battle.id===b.id).length}×</span></div><div>${esc(b.description)}</div><div class="row" style="margin-top:10px"><button class="b" data-be="${b.id}">Edit</button><button class="b d" data-bx="${b.id}">Delete</button></div></div>`).join('');
+  $('battlelist').querySelectorAll('[data-be]').forEach(x=>x.onclick=()=>{const b=S.battleCat.find(y=>y.id===x.dataset.be);S.bedit=b.id;$('bt').value=b.title;$('bd').value=b.description;$('bty').value=b.type||'speed';$('addb').textContent='Save';$('bediting').textContent='Editing…';scrollTo(0,0)});
+  $('battlelist').querySelectorAll('[data-bx]').forEach(x=>x.onclick=async()=>{if(await ask('Delete this battle?'))S.db.doc('battles/'+x.dataset.bx).delete()});
+}
+
+/* ---------- host: KML ---------- */
+function parseKML(txt){
+  const x=new DOMParser().parseFromString(txt,'text/xml');const map=new Map();let un=0;
+  const ringOf=co=>co?co.textContent.trim().replace(/\s*,\s*/g,',').split(/\s+/).map(p=>p.split(',').map(Number)).filter(p=>p.length>=2&&!isNaN(p[0])&&!isNaN(p[1])).map(p=>[+p[0].toFixed(5),+p[1].toFixed(5)]):[];
+  x.querySelectorAll('Placemark').forEach(pm=>{
+    let name=(pm.querySelector('name')?.textContent||'').trim();if(!name)name='Unnamed '+(++un);
+    const key=name.toLowerCase();
+    pm.querySelectorAll('Polygon').forEach(pg=>{
+      const o=ringOf(pg.querySelector('outerBoundaryIs coordinates'));if(o.length<3)return;
+      const h=[...pg.querySelectorAll('innerBoundaryIs coordinates')].map(ringOf).filter(r=>r.length>=3);
+      if(!map.has(key))map.set(key,{id:'r'+map.size,name,polys:[]});
+      map.get(key).polys.push({o,h});
+    });
+  });
+  return [...map.values()];
+}
+$('kml').onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;const regs=parseKML(await f.text());
+  if(!regs.length){$('hostmsg').textContent='No polygons found in that file.';return}
+  const sz=JSON.stringify(regs).length;
+  if(sz>240000){$('hostmsg').textContent='Map is too large ('+Math.round(sz/1000)+' KB, limit ~240 KB). Simplify the KML and retry.';return}
+  await S.db.doc('map/main').set({regions:regs});await clearClaims();
+  $('hostmsg').textContent='Loaded '+regs.length+' regions ('+regs.reduce((a,r)=>a+r.polys.length,0)+' shapes).';
+};
+async function setLock(rid,locked){
+  const c=S.claims[rid],r=S.regions.find(x=>x.id===rid);if(!c)return;
+  if(RO())return;
+  await S.db.doc('claims/'+rid).update({locked});
+  lg(locked?'lock':'unlock',[c.by,myT()].filter(Boolean),{regionName:r?r.name:rid,owner:TN(c.by),by:myP().name||'Host',self:c.by===myT()});
+}
+async function unclaim(rid){
+  const c=S.claims[rid],r=S.regions.find(x=>x.id===rid);if(!c)return;
+  if(RO())return;
+  await S.db.doc('claims/'+rid).delete();
+  lg('unclaim',[c.by,myT()].filter(Boolean),{regionName:r?r.name:rid,owner:TN(c.by),by:myP().name||'Host',self:c.by===myT()});
+}
+async function clearClaims(){
+  const ids=Object.keys(S.claims);
+  for(const id of ids)await S.db.doc('claims/'+id).delete();
+  if(ids.length)lg('reset',[],{by:myP().name||'Host',n:ids.length});
+}
+$('rcc').onclick=async()=>{
+  if(!(await ask('Reset completed challenges for ALL players?\n\nEvery completed challenge returns to the pool. Stars, hands and claimed regions are not changed.')))return;
+  let n=0;
+  for(const [id,h] of Object.entries(S.hands)){
+    const k=(h.done||[]).length,u=(h.undo||[]).filter(e=>e.a!=='complete');
+    if(!k&&u.length===(h.undo||[]).length)continue;
+    n+=k;await S.db.doc('hands/'+id).set({...h,done:[],earned:{},undo:u});
+  }
+  lg('resetdone',[],{by:myP().name||'Host',n});
+  tell(`Cleared ${n} completed challenge${n===1?'':'s'} across all players.`);
+};
+$('clr').onclick=async()=>{if(await ask('Clear every claim?'))clearClaims()};
+function renderHostRegions(){
+  $('reglist').innerHTML=S.regions.length?'<b>Regions ('+S.regions.length+')</b><br>'+S.regions.map(r=>esc(r.name)+' — '+fmtArea(r.area)+(r.polys.length>1?' ('+r.polys.length+' parts)':'')+' · '+(S.adj[r.id]?S.adj[r.id].size:0)+' neighbours').join('<br>'):'';
+}
+
+/* ---------- map ---------- */
+let VB=null,BASE=null,K=1;
+const P=p=>[p[0]*K,-p[1]];
+function areaM2(r){const R=6371008.8,d=Math.PI/180;let s=0;for(let i=0;i<r.length;i++){const a=r[i],b=r[(i+1)%r.length];s+=(b[0]-a[0])*d*(2+Math.sin(a[1]*d)+Math.sin(b[1]*d))}return Math.abs(s*R*R/2)}
+const fmtArea=m=>m>=1e6?(m/1e6).toFixed(2)+' km²':Math.round(m).toLocaleString()+' m²';
+function buildMap(){
+  const svg=$('svg');
+  if(!S.regions.length){svg.innerHTML='';$('mapmsg').textContent='No map loaded yet — the host needs to upload a KML file.';return}
+  $('mapmsg').textContent='Click a region to see its area and claim it. Drag to pan, scroll/pinch to zoom. ⚔ = battle declared · thick border = locked.';
+  let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9,n=0,sl=0;
+  S.regions.forEach(r=>r.polys.forEach(p=>p.o.forEach(q=>{sl+=q[1];n++})));
+  K=Math.cos(sl/n*Math.PI/180);
+  S.regions.forEach(r=>r.polys.forEach(p=>p.o.forEach(q=>{const z=P(q);x0=Math.min(x0,z[0]);x1=Math.max(x1,z[0]);y0=Math.min(y0,z[1]);y1=Math.max(y1,z[1])})));
+  const pad=Math.max(x1-x0,y1-y0)*.03;BASE=[x0-pad,y0-pad,x1-x0+2*pad,y1-y0+2*pad];VB=VB||BASE.slice();
+  svg.setAttribute('viewBox',VB.join(' '));svg.setAttribute('preserveAspectRatio','xMidYMid meet');
+  svg.innerHTML=S.regions.map(r=>`<path data-id="${r.id}" fill-rule="evenodd" d="${r.polys.flatMap(p=>[p.o,...p.h]).map(g=>'M'+g.map(q=>P(q).join(',')).join('L')+'Z').join('')}"/>`).join('')+'<g id="mk" style="pointer-events:none"></g>';
+  svg.querySelectorAll('path').forEach(p=>p.onclick=()=>{if(moved)return;S.sel=p.dataset.id;renderMapColors();renderPop()});
+  renderMapColors();renderLb();renderMarkers();
+}
+function renderMapColors(){
+  $('svg').querySelectorAll('path').forEach(p=>{const c=S.claims[p.dataset.id];p.style.fill=c?TCOL(c.by):'var(--neutral)';p.classList.toggle('sel',p.dataset.id===S.sel);p.classList.toggle('locked',!!(c&&c.locked))});
+}
+function renderMarkers(){
+  const g=$('mk');if(!g||!BASE)return;const fs=Math.max(BASE[2],BASE[3])/24;
+  g.innerHTML=openFights().map(f=>{const r=S.regions.find(x=>x.id===f.region);if(!r)return'';const [x,y]=P(r.c),live=Date.now()>=f.at+f.prepMs;
+    return `<g transform="translate(${x},${y})"><circle r="${fs*.7}" fill="${live?'#c0392b':'#e0a100'}" stroke="#fff" stroke-width="${fs*.08}"/><text text-anchor="middle" dominant-baseline="central" font-size="${fs}" fill="#fff">⚔</text></g>`}).join('');
+}
+function renderPop(){
+  const r=S.regions.find(x=>x.id===S.sel),pop=$('pop');
+  if(!r){pop.classList.add('hide');return}
+  const c=S.claims[r.id],f=fightOf(r.id);pop.classList.remove('hide');
+  let h=`<div class="row"><h3 class="sp">${esc(r.name)}</h3><button class="b" id="pc">✕</button></div><div class="mut">Area: ${fmtArea(r.area)}</div>`;
+  if(c){
+    h+=`<div style="margin-top:6px"><span class="dot" style="background:${esc(TCOL(c.by))}"></span> Claimed by <b>${esc(TN(c.by))}</b>${c.locked?' 🔒 Locked':''}</div>`;
+    if(f)h+=`<div style="margin-top:4px">⚔ Battle: ${esc(tnd(f.atk))} is challenging${Date.now()<f.at+f.prepMs?' — prep <b data-end="'+(f.at+f.prepMs)+'"></b>':' — in progress'}</div>`;
+    h+='<div class="row" style="margin-top:8px">';
+    if(c.by!==myT()&&!c.locked&&!f&&myT()&&!RO()){const bi=borderInfo(r.id,myT());
+      h+=`<div class="mut" style="width:100%">You hold ${bi.have} of ${bi.n} bordering regions (need ${bi.need}).</div>`;
+      if(bi.have>=bi.need)h+=`<button class="b p" id="db" ${canDeclare()?'':'disabled'}>Declare battle</button>`;
+      else h+='<div class="mut" style="width:100%">Not enough — use Powerup Menu → Start Illegal Battle.</div>'}
+    if(!RO()&&!c.locked&&!f&&(S.isHost||c.by===myT()))h+='<button class="b" id="lk">Lock</button>';
+    if(!RO()&&c.locked&&(S.isHost||c.by===myT()))h+='<button class="b" id="ul">Unlock</button>';
+    if(!RO()&&(S.isHost||(c.by===myT()&&!f)))h+='<button class="b d" id="uc">Unclaim</button>';
+    h+='</div>';
+  }else h+=`<button class="b p" id="cl" style="margin-top:8px" ${myT()&&!RO()?'':'disabled'}>Claim</button>${myT()?'':'<div class="mut">Join a team in the Teams tab first.</div>'}`;
+  pop.innerHTML=h;
+  $('pc').onclick=()=>{S.sel=null;renderMapColors();renderPop()};
+  if($('uc'))$('uc').onclick=()=>unclaim(r.id);
+  if($('lk'))$('lk').onclick=async()=>{if(await ask('You are locking this region manually.\n\nRegions are normally locked by winning a battle. Confirm that this lock is in accordance with the rules?'))setLock(r.id,true)};
+  if($('ul'))$('ul').onclick=()=>setLock(r.id,false);
+  if($('db'))$('db').onclick=()=>declare(r.id);
+  if($('cl'))$('cl').onclick=()=>claimRegion(r);
+}
+function renderLb(){
+  const cnt={},ar={};Object.entries(S.claims).forEach(([rid,c])=>{cnt[c.by]=(cnt[c.by]||0)+1;const r=S.regions.find(x=>x.id===rid);if(r)ar[c.by]=(ar[c.by]||0)+r.area});
+  $('lb').innerHTML=teamList().map(t=>`<span class="chip"><span class="dot" style="background:${esc(t.color)}"></span>${esc(t.name)} · ${cnt[t.id]||0} regions · ${fmtArea(ar[t.id]||0)} · ★ ${(S.hands[t.id]||{}).stars||0}</span>`).join('');
+}
+/* pan / zoom */
+let drag=null,moved=false;
+const svgEl=$('svg');
+function setVB(){svgEl.setAttribute('viewBox',VB.join(' '))}
+function zoom(f,cx,cy){if(!VB)return;const r=svgEl.getBoundingClientRect(),s=Math.max(VB[2]/r.width,VB[3]/r.height);
+  const ox=(r.width-VB[2]/s)/2,oy=(r.height-VB[3]/s)/2;
+  const px=VB[0]+(cx-r.left-ox)*s,py=VB[1]+(cy-r.top-oy)*s;
+  VB=[px-(px-VB[0])*f,py-(py-VB[1])*f,VB[2]*f,VB[3]*f];setVB()}
+svgEl.addEventListener('wheel',e=>{e.preventDefault();zoom(e.deltaY>0?1.15:1/1.15,e.clientX,e.clientY)},{passive:false});
+const ptrs=new Map();let pd=0;
+svgEl.addEventListener('pointerdown',e=>{ptrs.set(e.pointerId,[e.clientX,e.clientY]);moved=false;drag=[e.clientX,e.clientY];if(ptrs.size===2){const [a,b]=[...ptrs.values()];pd=Math.hypot(a[0]-b[0],a[1]-b[1])}});
+svgEl.addEventListener('pointermove',e=>{
+  if(!ptrs.has(e.pointerId)||!VB)return;ptrs.set(e.pointerId,[e.clientX,e.clientY]);
+  if(ptrs.size===2){const [a,b]=[...ptrs.values()],d=Math.hypot(a[0]-b[0],a[1]-b[1]);if(pd){zoom(pd/d,(a[0]+b[0])/2,(a[1]+b[1])/2)}pd=d;moved=true;return}
+  const dx=e.clientX-drag[0],dy=e.clientY-drag[1];if(Math.abs(dx)+Math.abs(dy)>4)moved=true;if(!moved)return;
+  const r=svgEl.getBoundingClientRect(),s=Math.max(VB[2]/r.width,VB[3]/r.height);
+  VB[0]-=dx*s;VB[1]-=dy*s;drag=[e.clientX,e.clientY];setVB()});
+const up=e=>{ptrs.delete(e.pointerId);pd=0;setTimeout(()=>{if(!ptrs.size)moved=false},0)};
+svgEl.addEventListener('pointerup',up);svgEl.addEventListener('pointercancel',up);
+
+/* ---------- battles ---------- */
+const BATTLE_MS=15*60000,FIN=new Set();
+const gEnd=()=>S.fights.reduce((m,f)=>f.status==='cancelled'?m:Math.max(m,f.at+f.prepMs+BATTLE_MS),0);
+const mEnd=()=>S.fights.reduce((m,f)=>f.status!=='cancelled'&&f.atk.by===myT()?Math.max(m,f.at+f.prepMs+BATTLE_MS+60000):m,0);
+const canDeclare=()=>{const n=Date.now();return n>=gEnd()&&n>=mEnd()};
+function pickBattle(){
+  if(!S.battleCat.length)return null;
+  const cnt={};S.fights.forEach(f=>{if(f.battle&&f.battle.id)cnt[f.battle.id]=(cnt[f.battle.id]||0)+1});
+  const w=S.battleCat.map(b=>Math.pow(.5,cnt[b.id]||0));let r=Math.random()*w.reduce((a,b)=>a+b,0);
+  for(let i=0;i<w.length;i++){r-=w[i];if(r<=0)return S.battleCat[i]}
+  return S.battleCat[0];
+}
+async function declare(rid,illegal){
+  const r=S.regions.find(x=>x.id===rid),c=S.claims[rid];
+  if(ro()||!r||!c||c.by===myT()||c.locked||fightOf(rid)||!myT())return;
+  const ok=legal(rid);
+  if(!illegal&&!ok)return tell('You do not control enough bordering regions. Use Powerup Menu → Start Illegal Battle.');
+  if(illegal&&ok)return tell('You already qualify for this battle; declare it from the Battles tab.');
+  if(illegal&&S.priv.stars<1)return tell('You need at least 1 ★.');
+  if(!canDeclare())return tell('A battle cannot be declared right now. See the timer on the Battles tab.');
+  const tot=S.prepMin+15;
+  if(!(await ask(`${illegal?'ILLEGAL battle (costs 1 ★): ':''}Declare battle for ${r.name} against ${TN(c.by)}?\n\nPrep: ${S.prepMin} min, then a 15 min battle. Nobody can declare another battle for ${tot} min; your team can't declare again for ${tot+1} min.`)))return;
+  const b=pickBattle();
+  const fid=uid();
+  await S.db.doc('fights/'+fid).set({region:rid,regionName:r.name,illegal:!!illegal,atk:{by:myT(),name:TN(myT()),color:TCOL(myT()),user:S.me},def:{by:c.by,name:TN(c.by),color:TCOL(c.by)},at:Date.now(),prepMs:S.prepMin*60000,battle:b?{id:b.id,title:b.title,description:b.description,type:b.type||'speed'}:null,status:'open',winner:null});
+  if(illegal){S.priv.stars-=1;await savePriv()}
+  S.tab='battle';showTabs();
+}
+async function finalize(f,w,endedAt){
+  const t=f[w];
+  await S.db.doc('fights/'+f.id).update({status:'done',winner:w,endedAt});
+  await S.db.doc('claims/'+f.region).set({by:t.by,locked:true,at:endedAt});
+}
+async function resolve(id,w){
+  const f=S.fights.find(x=>x.id===id);if(!f||f.status!=='open')return;
+  if(w==='x'){if(await ask('Cancel this battle? (This also lifts its cooldowns.)'))await S.db.doc('fights/'+id).update({status:'cancelled',cancelledAt:Date.now()});return}
+  await finalize(f,w,Date.now());
+}
+const myKey=f=>{const t=myT();return t&&t===f.atk.by?'atk':t&&t===f.def.by?'def':null};
+async function submitScore(id,val){
+  const f=S.fights.find(x=>x.id===id),k=f&&myKey(f),v=Number(val);
+  if(RO()||!k||f.status!=='open'||val===''||isNaN(v)||Date.now()>=f.at+f.prepMs+BATTLE_MS)return;
+  const cur=f[k+'Score'];
+  await S.db.doc('fights/'+id).update({[k+'Score']:{v,t:cur&&cur.v===v?cur.t:Date.now()}});
+}
+function qWinner(f){
+  const a=f.atkScore,d=f.defScore,av=a?a.v:0,dv=d?d.v:0;
+  if(av>dv)return'atk';if(dv>av)return'def';
+  return a&&d?(a.t<d.t?'atk':'def'):a?'atk':'def';
+}
+function normalizeFight(f){
+  if(f.status==='open'&&f.battle&&f.battle.type==='quantity'){
+    const end=f.at+f.prepMs+BATTLE_MS;
+    if(Date.now()>=end){f.status='done';f.winner=qWinner(f);f.endedAt=end;f.derived=true}
+  }
+}
+function autoFinish(){
+  if(RO())return;
+  S.fights.forEach(f=>{if(f.derived&&!FIN.has(f.id)){FIN.add(f.id);finalize(f,f.winner,f.endedAt).catch(console.error)}});
+}
+const dotn=t=>{const x=S.teams[t.by]||t;return `<span class="dot" style="background:${esc(x.color)}"></span> ${esc(x.name)}`};
+function fcard(f){
+  const now=Date.now(),start=f.at+f.prepMs,end=start+BATTLE_MS,live=now>=start,done=f.status==='done',b=f.battle,k=myKey(f);
+  let h=`<div class="card"><div class="row"><h3 class="sp">⚔ ${esc(f.regionName)}</h3>${f.illegal?'<span class="tag">illegal</span>':''}<span class="mut">${done?'Finished':live?'In progress':'Prep: <b data-end="'+start+'"></b>'}</span></div><div>${dotn(f.atk)} <span class="mut">attacking</span> ${dotn(f.def)}</div>`;
+  if(b)h+=`<div style="margin-top:6px"><b>${esc(b.title)}</b> <span class="tag">${esc(b.type)}</span><div>${esc(b.description)}</div></div>`;
+  if(!done&&live&&b&&k){
+    if(b.type==='speed')h+=`<div class="row" style="margin-top:10px"><button class="b p" data-sp="${f.id}" data-a="c">Complete</button><button class="b d" data-sp="${f.id}" data-a="a">Abandon</button></div>`;
+    else{const cur=f[k+'Score'];h+=`<div class="row" style="margin-top:10px">Ends in <b data-end="${end}"></b><input type="number" data-f="${f.id}" data-score="1" value="${cur?cur.v:''}" placeholder="Your score" style="width:130px"><button class="b p" data-ss="${f.id}">Update score</button>${cur?`<span class="mut">Submitted: ${cur.v}</span>`:''}</div>`}
+  }
+  if(done){
+    h+=`<div class="mut" style="margin-top:6px">Winner: ${esc(tnd(f[f.winner]))} · region locked 🔒${b&&b.type==='quantity'?` · Scores: ${esc(tnd(f.atk))} ${f.atkScore?f.atkScore.v:'–'}, ${esc(tnd(f.def))} ${f.defScore?f.defScore.v:'–'}`:''}</div>`;
+  }else if(S.isHost)h+=`<div class="row" style="margin-top:10px"><span class="mut">Host:</span><button class="b" data-r="${f.id}" data-w="atk">Attacker won</button><button class="b" data-r="${f.id}" data-w="def">Defender won</button><button class="b d" data-r="${f.id}" data-w="x">Cancel</button></div>`;
+  return h+'</div>';
+}
+function renderBattles(){
+  const opts=S.regions.filter(r=>{const c=S.claims[r.id];return c&&c.by!==myT()&&!c.locked&&!fightOf(r.id)&&legal(r.id)});
+  const ok=canDeclare(),n=Date.now(),g=gEnd(),m=mEnd();
+  $('decl').innerHTML='<option value="">⚔ Declare Battle…</option>'+opts.map(r=>`<option value="${r.id}">${esc(r.name)} — held by ${esc(TN(S.claims[r.id].by))}</option>`).join('');
+  $('decl').disabled=!ok||!opts.length||!myT()||RO();
+  $('lockmsg').innerHTML=n<g?`A battle is underway — new declarations open in <b data-end="${g}"></b>${m>g?' (your team: <b data-end="'+m+'"></b>)':''}.`:n<m?`Your team is on cooldown: <b data-end="${m}"></b>.`:'';
+}
+$('decl').onchange=e=>{const v=e.target.value;e.target.value='';if(v)declare(v)};
+function renderFights(){
+  const a=document.activeElement,keep=a&&a.dataset&&a.dataset.score?{id:a.dataset.f,v:a.value}:null;
+  const op=openFights(),dn=S.fights.filter(f=>f.status==='done');
+  $('fights').innerHTML=`<h3>Active battles (${op.length})</h3>`+(op.map(fcard).join('')||'<div class="card mut">No battles in progress.</div>')+(dn.length?`<h3>Past battles</h3>`+dn.map(fcard).join(''):'');
+  if(keep){const el=$('fights').querySelector(`input[data-f="${keep.id}"]`);if(el){el.value=keep.v;el.focus()}}
+  $('fights').querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>resolve(b.dataset.r,b.dataset.w));
+  $('fights').querySelectorAll('[data-sp]').forEach(b=>b.onclick=async()=>{
+    const f=S.fights.find(x=>x.id===b.dataset.sp),k=myKey(f),o=k==='atk'?'def':'atk',c=b.dataset.a==='c';
+    if(await ask(c?'Mark this battle as COMPLETED by your team? You win.':'ABANDON? The other team wins.'))resolve(f.id,c?k:o)});
+  $('fights').querySelectorAll('[data-ss]').forEach(b=>b.onclick=()=>submitScore(b.dataset.ss,$('fights').querySelector(`input[data-f="${b.dataset.ss}"]`).value));
+  $('alerts').innerHTML=unseen().map(f=>`<div class="card alert"><div class="row"><div class="sp">⚔ <b>${esc(tnd(f.atk))}</b> has declared battle for <b>${esc(f.regionName)}</b>, which your team controls! ${Date.now()<f.at+f.prepMs?'Prep ends in <b data-end="'+(f.at+f.prepMs)+'"></b>.':''}</div><button class="b" data-v="${f.id}">View</button><button class="b" data-k="${f.id}">Dismiss</button></div></div>`).join('');
+  $('alerts').querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{markSeen(b.dataset.k);renderFights();renderNav()});
+  $('alerts').querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>{markSeen(b.dataset.v);S.tab='battle';showTabs();renderFights()});
+  renderNav();renderBattles();renderMarkers();renderPop();renderPower();
+}
+setInterval(()=>{
+  const now=Date.now();
+  S.fights.forEach(normalizeFight);
+  document.querySelectorAll('[data-end]').forEach(e=>{e.textContent=fmtT(+e.dataset.end-now)});
+  const sig=openFights().map(f=>f.id+(now>=f.at+f.prepMs)).join()+S.fights.filter(f=>f.status==='done').length+canDeclare();
+  if(sig!==S.sig){S.sig=sig;renderFights();renderPower();renderLog()}
+  autoFinish();
+},1000);
+
+/* ---------- adjacency ---------- */
+function dseg(px,py,ax,ay,bx,by){const dx=bx-ax,dy=by-ay,l=dx*dx+dy*dy;let t=l?((px-ax)*dx+(py-ay)*dy)/l:0;t=Math.max(0,Math.min(1,t));const x=ax+t*dx-px,y=ay+t*dy-py;return x*x+y*y}
+function computeAdj(regs){
+  const adj={};regs.forEach(r=>adj[r.id]=new Set());if(!regs.length)return adj;
+  const kx=111320*Math.cos(regs[0].c[1]*Math.PI/180),ky=110540,T=20,T2=T*T;
+  const pr=regs.map(r=>{
+    const rings=r.polys.flatMap(p=>[p.o,...p.h]).map(g=>{const a=g.map(q=>[q[0]*kx,q[1]*ky]);const f=a[0],l=a[a.length-1];if(a.length>1&&f[0]===l[0]&&f[1]===l[1])a.pop();return a});
+    let x0=1e18,x1=-1e18,y0=1e18,y1=-1e18;rings.forEach(g=>g.forEach(q=>{x0=Math.min(x0,q[0]);x1=Math.max(x1,q[0]);y0=Math.min(y0,q[1]);y1=Math.max(y1,q[1])}));
+    return{id:r.id,rings,x0:x0-T,x1:x1+T,y0:y0-T,y1:y1+T}});
+  const hits=(A,B)=>{let n=0;
+    for(const g of A.rings)for(const q of g){
+      if(q[0]<B.x0||q[0]>B.x1||q[1]<B.y0||q[1]>B.y1)continue;
+      let hit=false;
+      for(const h of B.rings){for(let i=0;i<h.length&&!hit;i++){const a=h[i],b=h[(i+1)%h.length];if(dseg(q[0],q[1],a[0],a[1],b[0],b[1])<=T2)hit=true}if(hit)break}
+      if(hit&&++n>=2)return true}
+    return false};
+  for(let i=0;i<pr.length;i++)for(let j=i+1;j<pr.length;j++){
+    const A=pr[i],B=pr[j];if(A.x1<B.x0||B.x1<A.x0||A.y1<B.y0||B.y1<A.y0)continue;
+    if(hits(A,B)||hits(B,A)){adj[A.id].add(B.id);adj[B.id].add(A.id)}}
+  return adj;
+}
+function borderInfo(rid,who){
+  const nb=[...(S.adj[rid]||[])],have=nb.filter(x=>S.claims[x]&&S.claims[x].by===who).length;
+  return{n:nb.length,have,need:Math.ceil(S.minRatio*nb.length-1e-9)};
+}
+const legal=rid=>{const b=borderInfo(rid,myT());return b.have>=b.need};
+
+/* ---------- log ---------- */
+const HAND=3;
+const lg=(type,pl,d,id,t)=>{if(!S.db)return;return S.db.doc('log/'+(id||uid())).set({t:t||Date.now(),type,pl,d}).catch(console.error)};
+const GAME=['claim','unclaim','lock','unlock','reset','resetdone','declare','begin','end','cancel'];
+function allLog(){
+  const now=Date.now(),ev=S.log.filter(e=>['claim','draw','discard','trade','undo','power','unclaim','lock','unlock','reset','resetdone'].includes(e.type));
+  S.fights.forEach(f=>{
+    const pl=[f.atk.by,f.def.by],d={regionName:f.regionName,atk:tnd(f.atk),def:tnd(f.def),illegal:f.illegal};
+    ev.push({t:f.at,type:'declare',pl,d});
+    if(f.status==='cancelled'){ev.push({t:f.cancelledAt||f.at,type:'cancel',pl,d});return}
+    if(now>=f.at+f.prepMs)ev.push({t:f.at+f.prepMs,type:'begin',pl,d});
+    if(f.status==='done'){const w=f.winner,l=w==='atk'?'def':'atk';ev.push({t:f.endedAt||f.at+f.prepMs,type:'end',pl,d:{...d,win:tnd(f[w]),lose:tnd(f[l])}})}
+  });
+  return ev.sort((a,b)=>b.t-a.t);
+}
+function logText(e,pl){
+  const d=e.d||{};
+  switch(e.type){
+    case'claim':return `🚩 <b>${esc(d.who)}</b> claimed <b>${esc(d.regionName)}</b>`+(pl?(d.title?` using “${esc(d.title)}”`:' (manual claim)'):'');
+    case'declare':return `⚔ <b>${esc(d.atk)}</b> declared battle against <b>${esc(d.def)}</b> for <b>${esc(d.regionName)}</b>${d.illegal?' <span class="tag">illegal</span>':''}${d.illegal&&pl&&e.pl[0]===myT()?' — ⚡ powerup spent: Start Illegal Battle (1 ★)':''}`;
+    case'lock':return `🔒 <b>${esc(d.owner)}</b>'s region <b>${esc(d.regionName)}</b> was locked manually${d.self?'':' by '+esc(d.by)}`;
+    case'unlock':return `🔓 <b>${esc(d.owner)}</b>'s region <b>${esc(d.regionName)}</b> was unlocked${d.self?'':' by '+esc(d.by)}`;
+    case'unclaim':return `🏳 <b>${esc(d.owner)}</b>'s claim on <b>${esc(d.regionName)}</b> was removed${d.self?' (unclaimed by owner)':' by '+esc(d.by)}`;
+    case'resetdone':return `🧹 <b>${esc(d.by)}</b> (host) reset all completed challenges (${d.n} cleared)`;
+    case'reset':return `🧹 <b>${esc(d.by)}</b> (host) reset all claims (${d.n} region${d.n===1?'':'s'})`;
+    case'power':return `⚡ Used Discard Hand (1 ★): discarded ${d.discarded.map(x=>'“'+esc(x)+'”').join(', ')}; drew ${d.drawn.map(x=>'“'+esc(x)+'”').join(', ')||'nothing'}`;
+    case'begin':return `▶ Battle for <b>${esc(d.regionName)}</b> began (${esc(d.atk)} vs ${esc(d.def)})`;
+    case'end':return `🏁 Battle for <b>${esc(d.regionName)}</b> ended — winner: <b>${esc(d.win)}</b>, loser: ${esc(d.lose)}`;
+    case'cancel':return `🚫 Battle for <b>${esc(d.regionName)}</b> was cancelled by the host`;
+    case'draw':return `🃏 Drew “${esc(d.title)}”`;
+    case'discard':return `🗑 Discarded “${esc(d.title)}”`;
+    case'undo':return `↶ Undid: ${esc(d.what)}`;
+    case'trade':return e.pl[0]===myT()?`⚡ Used Trade Challenge (1 ★) with <b>${esc(d.b)}</b>: gave “${esc(d.give)}”, received “${esc(d.aGot)}”${d.aDup?` (“${esc(d.take)}” was a duplicate or already completed, so it was replaced)`:''}`:`⇄ <b>${esc(d.a)}</b> traded with you: you gave “${esc(d.take)}”, received “${esc(d.bGot)}”${d.bDup?` (“${esc(d.give)}” was a duplicate or already completed, so it was replaced)`:''}`;
+  }
+  return '';
+}
+function renderLog(){
+  if(S.tab!=='log')return;
+  const pl=S.lsub==='player';
+  $('lognav').innerHTML=[['game','Game Log'],['player','Team Log']].map(([k,l])=>`<button data-l="${k}" class="${S.lsub===k?'on':''}">${l}</button>`).join('');
+  $('lognav').querySelectorAll('button').forEach(b=>b.onclick=()=>{S.lsub=b.dataset.l;renderLog()});
+  const rows=allLog().filter(e=>pl?(e.pl||[]).includes(myT()):GAME.includes(e.type)).slice(0,300);
+  $('logbody').innerHTML=rows.map(e=>`<div class="card"><span class="mut">${new Date(e.t).toLocaleString()}</span><br>${logText(e,pl)}</div>`).join('')||'<div class="card mut">Nothing logged yet.</div>';
+}
+
+/* ---------- claiming / completing / undo ---------- */
+const pushUndo=e=>{S.priv.undo=(S.priv.undo||[]).concat(e).slice(-30)};
+function descUndo(e){
+  const r=e.region&&S.regions.find(x=>x.id===e.region);
+  return e.a==='draw'?`drawing “${ttl(e.id)}”`:e.a==='discard'?`discarding “${ttl(e.id)}”`:`completing “${ttl(e.id)}”`+(r?` (claimed ${r.name})`:'');
+}
+function renderUndo(){
+  const u=S.priv.undo||[],e=u[u.length-1];
+  $('undobar').innerHTML=`<div class="row" style="margin:10px 0 0"><button class="b" id="undob" ${e?'':'disabled'}>↶ Undo${e?': '+esc(descUndo(e)):''}</button></div>`;
+  $('undob').onclick=undoLast;
+}
+async function undoLast(){
+  if(ro()||!myT())return;
+  const P=S.priv,u=P.undo||[],e=u[u.length-1];if(!e)return;
+  let ok=true,note='';const what=descUndo(e);
+  if(e.a==='draw'){ok=P.hand.includes(e.id);if(ok)P.hand=P.hand.filter(x=>x!==e.id)}
+  else if(e.a==='discard'){ok=!P.hand.includes(e.id)&&!P.done.includes(e.id)&&P.hand.length<HAND;if(ok)P.hand.push(e.id)}
+  else{
+    ok=P.done.includes(e.id)&&P.hand.length<HAND;
+    if(ok){
+      P.done=P.done.filter(x=>x!==e.id);P.hand.push(e.id);P.stars=Math.max(0,P.stars-(e.earned||0));if(P.earned)delete P.earned[e.id];
+      if(e.region){const c=S.claims[e.region];
+        if(c&&c.by===myT()&&!c.locked&&!fightOf(e.region))await unclaim(e.region);
+        else note='The region could not be released automatically (it is locked, in a battle, or no longer yours).'}
+    }
+  }
+  P.undo=u.slice(0,-1);
+  if(ok)lg('undo',[myT()],{what});
+  await savePriv();
+  if(!ok)tell('That action can no longer be undone because your hand changed.');
+  else if(note)tell(note);
+}
+function closeModal(){$('modal').classList.add('hide');$('modal').innerHTML=''}
+function showComplete(id){
+  const c=S.deck.find(x=>x.id===id);if(!c)return;
+  const free=S.regions.filter(r=>!S.claims[r.id]),can=free.length&&myT()&&!RO(),variable=c.reward==='?';
+  $('modal').innerHTML=`<div class="card" style="max-width:440px;width:100%"><h3>Complete “${esc(c.title)}”</h3><div class="mut">Reward: ★ ${esc(c.reward)}</div>${variable?'<div style="margin:12px 0 6px">How many ★ did you earn?</div><input id="mearn" type="number" min="0" step="1" placeholder="Number of ★">':''}<div style="margin:12px 0 6px">Which region are you claiming?</div>
+    <select id="mreg" ${can?'':'disabled'}><option value="">— choose a region —</option>${free.map(r=>`<option value="${r.id}">${esc(r.name)} (${fmtArea(r.area)})</option>`).join('')}</select>
+    ${can?'':'<div class="mut" style="margin-top:6px">No unclaimed regions available (or no map/profile yet).</div>'}
+    <div class="row" style="margin-top:14px"><button class="b p" id="mok" ${can?'':'disabled'}>Complete &amp; claim</button><button class="b" id="mskip">Complete without claiming</button><button class="b" id="mcx">Cancel</button></div></div>`;
+  $('modal').classList.remove('hide');
+  $('mcx').onclick=closeModal;
+  const earn=()=>{if(!variable)return undefined;const v=$('mearn').value.trim();return(v===''||isNaN(Number(v))||Number(v)<0)?null:Math.floor(Number(v))};
+  $('mskip').onclick=()=>{const e=earn();if(e===null)return tell('Enter how many ★ you earned (a number).');closeModal();completeChallenge(id,null,e)};
+  $('mok').onclick=()=>{const e=earn();if(e===null)return tell('Enter how many ★ you earned (a number).');const v=$('mreg').value;if(!v)return tell('Choose a region first.');closeModal();completeChallenge(id,v,e)};
+}
+async function completeChallenge(id,rid,earnedOv){
+  if(ro()||needTeam())return;
+  const c=S.deck.find(x=>x.id===id),r=rid&&S.regions.find(x=>x.id===rid);if(!c||!S.priv.hand.includes(id))return;
+  if(rid&&(!r||S.claims[rid]))return tell('That region has just been claimed by someone else.');
+  const earned=earnedOv!==undefined?earnedOv:(Number(c.reward)||0);
+  S.priv.hand=S.priv.hand.filter(x=>x!==id);S.priv.done.push(id);
+  S.priv.earned=S.priv.earned||{};S.priv.earned[id]=earned;S.priv.stars+=earned;
+  pushUndo({a:'complete',id,earned,region:rid||null});
+  await savePriv();
+  if(rid){
+    await S.db.doc('claims/'+rid).set({by:myT(),user:S.me,at:Date.now(),title:c.title});
+    lg('claim',[myT()],{regionName:r.name,who:TN(myT()),title:c.title});
+  }
+}
+async function claimRegion(r){
+  if(ro()||S.claims[r.id]||!myT())return;
+  if(!(await ask('You are claiming this region manually.\n\nRegions are normally claimed when you complete a challenge. Confirm that this claim is in accordance with the rules?')))return;
+  await S.db.doc('claims/'+r.id).set({by:myT(),user:S.me,at:Date.now()});
+  lg('claim',[myT()],{regionName:r.name,who:TN(myT()),title:null});
+}
+
+/* ---------- powerups ---------- */
+function drawOne(st,excl,pid,quiet){
+  const used=new Set([...st.hand,...st.done]);
+  let pool=S.deck.filter(c=>!used.has(c.id)&&!(excl||[]).includes(c.id));
+  if(!pool.length)pool=S.deck.filter(c=>!used.has(c.id));
+  if(!pool.length)return null;
+  const c=pool[Math.floor(Math.random()*pool.length)];st.hand.push(c.id);
+  if(!quiet)lg('draw',[pid],{title:c.title});return c.id;
+}
+function receiveTo(st,id,pid,quiet){
+  if(!st.hand.includes(id)&&!st.done.includes(id)&&S.deck.some(c=>c.id===id)){st.hand.push(id);return id}
+  if(!quiet)lg('discard',[pid],{title:ttl(id),note:'duplicate from trade'});
+  return drawOne(st,[id],pid,quiet);
+}
+async function discardHand(){
+  if(ro()||!myT()||S.priv.stars<1||!S.priv.hand.length)return;
+  if(!(await ask(`Spend 1 ★ to discard your whole hand and redraw ${HAND} challenges?`)))return;
+  const old=S.priv.hand.slice();S.priv.hand=[];S.priv.stars-=1;S.priv.undo=[];
+  const drawn=[];
+  for(let i=0;i<HAND;i++){const id=drawOne(S.priv,old,myT(),true);if(id!=null)drawn.push(id)}
+  lg('power',[myT()],{kind:'discardhand',discarded:old.map(ttl),drawn:drawn.map(ttl)});
+  await savePriv();
+}
+const ttl=id=>{const c=S.deck.find(x=>x.id===id);return c?c.title:'(removed challenge)'};
+const ttlN=id=>id?ttl(id):'nothing (no challenges left to draw)';
+const openTrade=()=>S.trades.find(x=>x.from===myT()&&x.status==='open');
+const tupd=(id,o)=>S.db.doc('trades/'+id).update(o);
+async function startTrade(){
+  const pl=S.teams[S.tPl];if(ro()||!myT()||!pl||S.priv.stars<1||!S.priv.hand.length||openTrade())return;
+  S.priv.stars-=1;S.tGive=S.tTake=null;await savePriv();
+  await S.db.doc('trades/'+uid()).set({from:myT(),to:S.tPl,fromName:TN(myT()),toName:pl.name,status:'open',at:Date.now()});
+}
+async function confirmTrade(t){
+  const hb=S.hands[t.to]||{},bh=hb.hand||[];
+  if(!S.priv.hand.includes(S.tGive)||!bh.includes(S.tTake))return tell('That selection is no longer valid. Pick again.');
+  const give=S.tGive,take=S.tTake;
+  S.priv.undo=[];S.priv.hand=S.priv.hand.filter(x=>x!==give);
+  const aGot=receiveTo(S.priv,take,myT(),true);
+  const B={hand:bh.filter(x=>x!==take),done:hb.done||[]};
+  const bGot=receiveTo(B,give,t.to,true);
+  S.tGive=S.tTake=null;
+  await savePriv();
+  await S.db.doc('hands/'+t.to).update({hand:B.hand});
+  await tupd(t.id,{status:'done',give,take,aGot:aGot||null,bGot:bGot||null,at:Date.now()});
+  lg('trade',[myT(),t.to],{a:TN(myT()),b:t.toName,give:ttl(give),take:ttl(take),aGot:ttlN(aGot),bGot:ttlN(bGot),aDup:aGot!==take,bDup:bGot!==give});
+}
+let seenT=new Set();try{seenT=new Set(JSON.parse(localStorage.getItem('seenT')||'[]'))}catch(e){}
+const unseenTrades=()=>S.trades.filter(t=>t.to===myT()&&t.status==='done'&&!seenT.has(t.id));
+function renderTradePop(){
+  $('tradepop').innerHTML=unseenTrades().map(t=>`<div class="card alert"><div class="row"><div class="sp">⇄ <b>${esc(t.fromName)}</b> traded with you: you gave “${esc(ttl(t.take))}” and received “${esc(ttlN(t.bGot))}”.</div><button class="b" data-tk="${t.id}">Dismiss</button></div></div>`).join('');
+  $('tradepop').querySelectorAll('[data-tk]').forEach(b=>b.onclick=()=>{seenT.add(b.dataset.tk);try{localStorage.setItem('seenT',JSON.stringify([...seenT]))}catch(e){}renderTradePop();renderNav()});
+}
+const pickOpt=(n,c,sel)=>`<label class="pick"><input type="radio" name="${n}" value="${c.id}" ${sel===c.id?'checked':''}> <b>${esc(c.title)}</b> <span class="rw">★ ${esc(c.reward)}</span><div class="mut">${esc(c.description)}</div></label>`;
+function renderPower(){
+  const el=$('power');if(!el)return;
+  const st=S.priv.stars,no=st<1,others=teamList().filter(t=>t.id!==myT());
+  const ill=S.regions.filter(r=>{const c=S.claims[r.id];return c&&c.by!==myT()&&!c.locked&&!fightOf(r.id)&&!legal(r.id)});
+  const t=openTrade(),cd=canDeclare();
+  let th;
+  if(!t){
+    th=`<div class="row"><select id="tpl" style="width:auto"><option value="">Choose team…</option>${others.map(t=>`<option value="${t.id}" ${S.tPl===t.id?'selected':''}>${esc(t.name)}</option>`).join('')}</select><button class="b p" id="tgo" ${no||!myT()||!S.priv.hand.length||!S.tPl?'disabled':''}>See their hand (1 ★)</button></div><div class="mut" style="margin-top:6px">The ★ is spent as soon as you see their hand, even if you then cancel.${S.priv.hand.length?'':' You need a challenge in your hand to trade.'}</div>`;
+  }else{
+    const mine=S.priv.hand.map(id=>S.deck.find(c=>c.id===id)).filter(Boolean),bh=((S.hands[t.to]||{}).hand||[]),theirs=bh.map(id=>S.deck.find(c=>c.id===id)).filter(Boolean);
+    if(S.tTake&&!bh.includes(S.tTake))S.tTake=null;if(S.tGive&&!S.priv.hand.includes(S.tGive))S.tGive=null;
+    th=`<div class="mut">Trading with <b>${esc(t.toName)}</b>: pick one of yours to give and one of theirs to take.</div><div class="row" style="align-items:flex-start"><div class="sp"><b>Give</b>${mine.map(c=>pickOpt('tg',c,S.tGive)).join('')}</div><div class="sp"><b>Take</b>${theirs.map(c=>pickOpt('tt',c,S.tTake)).join('')||'<div class="mut">They have no challenges in hand.</div>'}</div></div><div class="row"><button class="b p" id="tok" ${S.tGive&&S.tTake?'':'disabled'}>Confirm trade</button><button class="b" id="tcx">Cancel (no refund)</button></div>`;
+  }
+  const log=S.trades.filter(x=>(x.from===myT()||x.to===myT())&&x.status==='done').sort((a,b)=>b.at-a.at).slice(0,5).map(x=>x.from===myT()?`Your team traded “${esc(ttl(x.give))}” to ${esc(x.toName)} and received “${esc(ttlN(x.aGot))}”.`:`${esc(x.fromName)} traded with you: you gave “${esc(ttl(x.take))}” and received “${esc(ttlN(x.bGot))}”.`);
+  el.innerHTML=`<div class="card"><div class="row"><h3 class="sp">Your balance</h3><span class="stars big">★ ${st}</span></div><div class="mut">Each powerup costs 1 ★.${no?' You have no powerups available.':''}</div></div>
+  <div class="card"><div class="row"><h3 class="sp">Discard Hand</h3><span class="rw">1 ★</span></div><div>Discard every challenge in your hand and redraw a full hand (${HAND}).</div><div class="row" style="margin-top:10px"><button class="b p" id="pdh" ${no||!S.priv.hand.length?'disabled':''}>Discard Hand</button></div></div>
+  <div class="card"><div class="row"><h3 class="sp">Trade Challenge</h3><span class="rw">1 ★</span></div><div style="margin-bottom:8px">Swap one of your challenges for one from another player's hand. Duplicates or already-completed challenges are discarded and replaced with a new draw.</div>${th}${log.length?'<div class="mut" style="margin-top:10px"><b>Recent trades</b><br>'+log.join('<br>')+'</div>':''}</div>
+  <div class="card"><div class="row"><h3 class="sp">Start Illegal Battle</h3><span class="rw">1 ★</span></div><div style="margin-bottom:8px">Battle for a region even though you don't hold enough of its bordering regions (needs ≥ ${S.minRatio} of them). Same cooldowns as a normal battle.</div>
+    <select id="ills" class="decl" ${no||!cd||!ill.length||!myT()||RO()?'disabled':''}><option value="">⚔ Start Illegal Battle…</option>${ill.map(r=>{const bi=borderInfo(r.id,myT());return `<option value="${r.id}">${esc(r.name)} — held by ${esc(TN(S.claims[r.id].by))} (you: ${bi.have}/${bi.need})</option>`}).join('')}</select>
+    ${!cd?'<div class="mut" style="margin-top:6px">Battles are on cooldown — see the Battles tab.</div>':!ill.length?'<div class="mut" style="margin-top:6px">No regions need an illegal battle right now.</div>':''}</div>`;
+  $('pdh').onclick=discardHand;
+  if($('tpl'))$('tpl').onchange=e=>{S.tPl=e.target.value;renderPower()};
+  if($('tgo'))$('tgo').onclick=startTrade;
+  if($('tcx'))$('tcx').onclick=()=>tupd(t.id,{status:'cancelled'});
+  if($('tok'))$('tok').onclick=()=>confirmTrade(t);
+  el.querySelectorAll('input[name=tg]').forEach(i=>i.onchange=()=>{S.tGive=i.value;$('tok').disabled=!(S.tGive&&S.tTake)});
+  el.querySelectorAll('input[name=tt]').forEach(i=>i.onchange=()=>{S.tTake=i.value;$('tok').disabled=!(S.tGive&&S.tTake)});
+  $('ills').onchange=e=>{const v=e.target.value;e.target.value='';if(v)declare(v,true)};
+}
+
+/* ---------- teams ---------- */
+const teamList=()=>Object.entries(S.teams).map(([id,t])=>({id,...t})).sort((a,b)=>(a.order||0)-(b.order||0));
+async function joinTeam(tid){
+  if(ro())return;
+  const n=(($('pn')&&$('pn').value.trim())||myP().name||'Player').slice(0,24);
+  if(!canJoin()){const ok=await window.parent.TG.requirePassword(S.gid);if(!ok)return}
+  await S.db.doc('players/'+S.me).set({name:n,team:tid});
+}
+function renderTeams(){
+  if(!$('t-teams'))return;
+  const mt=myT(),p=myP(),list=teamList(),cnt={},ar={};
+  Object.entries(S.claims).forEach(([rid,c])=>{cnt[c.by]=(cnt[c.by]||0)+1;const r=S.regions.find(x=>x.id===rid);if(r)ar[c.by]=(ar[c.by]||0)+r.area});
+  const f=document.activeElement;
+  if(!(f&&f.id==='pn')){
+    $('me').innerHTML=RO()?'':S.db?`<div class="card"><h3>You</h3><input id="pn" maxlength="24" placeholder="Your name" value="${esc(p.name||'')}"><div class="row">${list.map(t=>`<button class="b" data-j="${t.id}" style="${mt===t.id?'background:'+esc(t.color)+';border-color:'+esc(t.color)+';color:'+textOn(t.color):'border-color:'+esc(t.color)}">${mt===t.id?'You are on ':'Join '}${esc(t.name)}</button>`).join('')||'<span class="mut">The host has not set up any teams yet.</span>'}</div><div class="mut" style="margin-top:6px">${canJoin()?(mt?'Switch teams any time.':'Pick a team to start playing.'):'You are watching this game. Joining a team needs the game password.'}</div></div>`:'<div class="card mut">Sign in to join the game.</div>';
+    $('me').querySelectorAll('[data-j]').forEach(b=>b.onclick=()=>joinTeam(b.dataset.j));
+  }
+  $('teams').innerHTML=list.map(t=>{const m=Object.values(S.players).filter(x=>x.team===t.id).map(x=>esc(x.name||'Player'));
+    return `<div class="card"><div class="row" style="margin:0"><span class="dot" style="background:${esc(t.color)}"></span><b class="sp">${esc(t.name)}${mt===t.id?' (your team)':''}</b><b class="stars">★ ${(S.hands[t.id]||{}).stars||0}</b></div><div class="mut">${cnt[t.id]||0} regions · ${fmtArea(ar[t.id]||0)}</div><div class="mut">${m.length?m.join(', '):'No members yet'}</div></div>`}).join('');
+}
+function renderHostTeams(){
+  const el=$('hostteams');if(!el)return;
+  if(!S.isHost||RO()){el.innerHTML='';return}
+  const a=document.activeElement;if(a&&el.contains(a)&&a.tagName==='INPUT')return;
+  const list=teamList();
+  el.innerHTML=`<div class="card"><h3>Teams</h3><div class="mut">Players pick one of these in the Teams tab. Claims, battles, challenges and ★ belong to teams.</div>${list.map(t=>`<div class="row"><input data-tn="${t.id}" value="${esc(t.name)}" maxlength="24" style="flex:1;min-width:120px"><input type="color" data-tc="${t.id}" value="${esc(t.color)}" style="width:46px;padding:2px;height:34px"><button class="b" data-ts="${t.id}">Save</button><button class="b d" data-td="${t.id}">Delete</button></div>`).join('')}<div class="row"><button class="b p" id="addteam">Add team</button></div></div>`;
+  el.querySelectorAll('[data-ts]').forEach(b=>b.onclick=()=>{const id=b.dataset.ts,n=el.querySelector(`[data-tn="${id}"]`).value.trim()||'Team',c=el.querySelector(`[data-tc="${id}"]`).value;S.db.doc('teams/'+id).update({name:n.slice(0,24),color:c})});
+  el.querySelectorAll('[data-td]').forEach(b=>b.onclick=async()=>{const id=b.dataset.td;
+    if(Object.values(S.players).some(x=>x.team===id)||Object.values(S.claims).some(c=>c.by===id)||S.hands[id])return tell('This team has members, claims or a hand, so it cannot be deleted. Rename it instead.');
+    if(Object.keys(S.teams).length<=1)return tell('Keep at least one team.');
+    if(await ask('Delete this team?'))S.db.doc('teams/'+id).delete()});
+  $('addteam').onclick=()=>{const used=new Set(list.map(t=>String(t.color).toLowerCase())),col=COLORS.find(c=>!used.has(c))||COLORS[0];
+    S.db.doc('teams/t'+Date.now().toString(36)).set({name:'Team '+(list.length+1),color:col,order:Date.now()})};
+}
+
+/* ---------- access (spectators, password) ---------- */
+function renderAccess(){const g=S.game;if(!S.isHost||!g)return;
+  $('acc-spec').checked=!!g.spectators;
+  $('acc-st').textContent=g.spectators?'Spectators can watch without the password.':'Everyone needs the password to open this game.'}
+$('acc-spec').onchange=()=>{if(!S.isHost||!S.gid||RO())return;
+  S.raw.doc('games/'+S.gid).update({spectators:$('acc-spec').checked}).then(()=>{$('acc-msg').textContent=''}).catch(e=>{console.error(e);$('acc-msg').textContent='Could not save.'})};
+$('acc-pw').onclick=async()=>{if(!S.isHost||RO())return;const ok=await window.parent.TG.changePassword(S.gid);$('acc-msg').textContent=ok?'Password changed.':''};
+
+/* ---------- end game ---------- */
+$('eg').onclick=async()=>{
+  if(!S.isHost||RO())return;
+  const em=$('em');
+  if(!await ask('End this game for everyone? It is frozen and saved to Past Games. This cannot be undone.'))return;
+  em.textContent='Ending the game…';
+  const cnt={},ar={};Object.entries(S.claims).forEach(([rid,c])=>{cnt[c.by]=(cnt[c.by]||0)+1;const r=S.regions.find(x=>x.id===rid);if(r)ar[c.by]=(ar[c.by]||0)+r.area});
+  const rows=teamList().map(t=>({id:t.id,name:t.name,color:t.color,regions:cnt[t.id]||0,area:Math.round(ar[t.id]||0)})).sort((a,b)=>b.regions-a.regions||b.area-a.area);
+  const top=rows[0],tie=rows.length>1&&rows[1].regions===top.regions&&rows[1].area===top.area;
+  const sum=!top?'No teams':tie?'Draw at '+top.regions+' regions':top.name+' won with '+top.regions+' region'+(top.regions===1?'':'s');
+  const ps=[...new Set(Object.entries(S.players).filter(([u,p])=>p&&p.team).map(([u])=>u).concat([S.game.createdBy,S.me].filter(Boolean)))];
+  try{await S.raw.doc('games/'+S.gid).update({status:'ended',endedAt:Date.now(),endedBy:S.me,participants:ps,summary:sum,result:{winner:tie||!top?'draw':top.id,teams:rows}});em.textContent=''}
+  catch(e){console.error(e);em.textContent='Could not end the game. Check your connection and try again.'}
+};
+
+init();
+</script></body></html>

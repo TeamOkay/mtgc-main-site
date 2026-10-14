@@ -1,0 +1,577 @@
+<title>Transit Games</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&display=swap">
+<style>
+/* Layout: a signage-style bar over one screen at a time. Games run edge to edge in their own frames below it. */
+:root{
+  --bg:#e9edf1;
+  --panel:#ffffff;
+  --ink:#12161c;
+  --mute:#566170;
+  --line:#c9d0d8;
+  --amber:#2f6fed;
+  --amber-ink:#ffffff;
+  --focus:#2f6fed;
+  --bad:#b3261e;
+  --scrim:rgba(10,14,20,.55);
+  --display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --body:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#12161c;--panel:#1b212a;--ink:#f2efe8;--mute:#9aa3ad;--line:#2a323d;--focus:#7aa7ff;--bad:#ff8a80;color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#12161c;--panel:#1b212a;--ink:#f2efe8;--mute:#9aa3ad;--line:#2a323d;--focus:#7aa7ff;--bad:#ff8a80;color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 var(--body);display:flex;flex-direction:column;overflow:hidden}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+
+.bar{flex:none;display:flex;align-items:center;gap:14px;padding:10px 16px;background:var(--panel);border-bottom:4px solid var(--amber)}
+.brand{border:0;background:none;padding:0;font:800 20px/1 var(--display);letter-spacing:.1em;text-transform:uppercase}
+.back{border:1px solid var(--line);background:none;border-radius:6px;padding:6px 10px;font-size:14px;color:var(--mute)}
+.back:hover{color:var(--ink);border-color:var(--mute)}
+.crumb{margin-left:auto;font-size:14px;color:var(--mute);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+#views{flex:1;min-height:0;overflow:auto}
+.view{max-width:560px;margin-inline:auto;padding:36px 16px 64px}
+h1{font:800 clamp(2.8rem,11vw,4rem)/.95 var(--display);letter-spacing:.01em;margin:0 0 12px;text-wrap:balance}
+.lead{color:var(--mute);margin:0 0 32px;max-width:38ch}
+.stack{display:flex;flex-direction:column;gap:12px}
+.btn{display:block;width:100%;text-align:center;padding:18px 20px;border-radius:8px;border:2px solid var(--line);background:var(--panel);font-size:1.1rem;font-weight:700}
+.btn:hover{border-color:var(--mute)}
+.btn-go{background:var(--amber);border-color:var(--amber);color:var(--amber-ink)}
+.btn-go:hover{border-color:var(--ink)}
+.note{color:var(--mute);margin:20px 0 0}
+
+.game,.entry{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:16px;width:100%;text-align:left;padding:16px;border-radius:8px;border:2px solid var(--line);background:var(--panel)}
+button.game:hover{border-color:var(--mute)}
+.bullet{display:grid;place-items:center;width:52px;height:52px;border-radius:50%;font:800 22px/1 var(--display);letter-spacing:.02em}
+.bullet.sm{width:36px;height:36px;font-size:16px}
+.game strong,.entry strong{display:block;font:800 1.4rem/1.1 var(--display);letter-spacing:.02em}
+.sub{display:block;color:var(--mute);font-size:.9rem;margin-top:2px}
+.meta{display:block;color:var(--mute);font-size:.8rem;letter-spacing:.06em;text-transform:uppercase;margin-top:6px}
+.chev{font-size:1.6rem;color:var(--mute)}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.tag{border:1px solid var(--line);border-radius:4px;padding:1px 7px;font-size:.78rem;color:var(--mute);letter-spacing:.03em}
+.tag.you{border-color:var(--amber);color:var(--ink)}
+.small{border:2px solid var(--line);background:none;border-radius:6px;padding:7px 14px;font-weight:700;font-size:.9rem;white-space:nowrap}
+.small:hover{border-color:var(--mute)}
+.small.go{background:var(--amber);border-color:var(--amber);color:var(--amber-ink)}
+.small.warn{color:var(--bad)}
+.res{display:block;margin-top:6px}
+.actions{display:flex;flex-direction:column;gap:8px;align-items:stretch}
+
+.ov{position:fixed;inset:0;z-index:50;background:var(--scrim);display:flex;align-items:center;justify-content:center;padding:16px}
+.ov[hidden]{display:none}
+.panel{width:100%;max-width:420px;max-height:100%;overflow:auto;background:var(--panel);border:2px solid var(--line);border-radius:10px;padding:20px}
+.panel h2{font:800 1.7rem/1.05 var(--display);letter-spacing:.02em;margin:0 0 6px}
+.panel p{margin:0 0 14px;color:var(--mute);font-size:.95rem}
+.field{display:block;margin-top:12px}
+.field span{display:block;font-size:.8rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);margin-bottom:4px}
+.field input,.field select{width:100%;padding:10px 12px;border-radius:6px;border:2px solid var(--line);background:var(--bg)}
+.err{min-height:1.3em;margin-top:10px;color:var(--bad);font-size:.9rem}
+.panel .row{display:flex;gap:10px;justify-content:flex-end;margin-top:8px}
+.row .btn{width:auto;padding:10px 18px;font-size:1rem}
+
+#stage{flex:1;min-height:0;position:relative}
+.acctbtn{margin-left:auto;flex:none;max-width:40vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:7px 12px;border-radius:18px;border:1px solid var(--line);background:transparent;color:inherit;font:600 13px/1 system-ui,sans-serif;cursor:pointer}
+.acctbtn:not([hidden])+.themebtn{margin-left:0}
+.themebtn{margin-left:auto;flex:none;width:36px;height:36px;border-radius:50%;border:1px solid var(--line,currentColor);background:transparent;color:inherit;font-size:18px;line-height:1;cursor:pointer}
+.frame{position:absolute;inset:0;width:100%;height:100%;border:0;background:var(--bg)}
+@media (prefers-reduced-motion:no-preference){.btn,.game,.small,.back{transition:border-color .12s}}
+</style>
+
+<header class="bar">
+  <button class="back" id="back" hidden><span aria-hidden="true">←</span> Home</button>
+  <button class="brand" id="brand" type="button">Project of the MTGC</button>
+  <span class="crumb" id="crumb"></span>
+  <button class="acctbtn" id="acct" type="button" hidden></button>
+  <button class="themebtn" id="theme" type="button" aria-label="Switch light or dark mode" title="Light / dark mode"></button>
+</header>
+
+<main id="views">
+  <section class="view" id="v-home">
+    <h1>Transit Games</h1>
+    <p class="lead">Companion site for city-scale transit-based games</p>
+    <div class="stack">
+      <button class="btn btn-go" id="go-start" type="button">Start Game</button>
+      <button class="btn" id="go-ongoing" type="button">View Ongoing Games</button>
+      <button class="btn" id="go-past" type="button">View Past Games</button>
+    </div>
+  </section>
+
+  <section class="view" id="v-start" hidden>
+    <h1>Choose a game</h1>
+    <p class="lead">You will be the host. You set a password that other players need to join a team.</p>
+    <div class="stack" id="typelist"></div>
+  </section>
+
+  <section class="view" id="v-ongoing" hidden>
+    <h1>Ongoing games</h1>
+    <p class="lead">Games that are running now. A lock means you need the host's password.</p>
+    <div id="ongoinglist"></div>
+  </section>
+
+  <section class="view" id="v-past" hidden>
+    <h1>Past games</h1>
+    <p class="lead">Finished games you took part in.</p>
+    <div id="pastlist"></div>
+  </section>
+</main>
+
+<div id="stage" hidden></div>
+<div class="ov" id="ov" hidden></div>
+
+<script>/*__PLATFORM__*/</script>
+<script>
+(function () {
+  var HTML = __HTML__;
+
+  var TYPES = [
+    { id: "rail-rush", name: "Rail Rush", tag: "Claim stations across a city's transit network.", meta: "Toronto · Montréal · Boston", bullet: "RR", color: "#e4572e" },
+    { id: "area-claiming", name: "Area Claiming", tag: "Complete challenges to claim map regions, then battle to hold them.", meta: "Map and challenges set by the host", bullet: "AC", color: "#12a39a" },
+    { id: "ticket-to-ride", name: "Ticket to Ride", tag: "Claim routes and complete tickets across a city's transit network.", meta: "Montréal", bullet: "TR", color: "#7b4fd1", cities: ["montreal"] }
+  ];
+  var CITY = { toronto: "Toronto", montreal: "Montréal", boston: "Boston" };
+  var PURGE = {
+    "rail-rush": { cols: ["events", "players", "teams", "challenges", "members"], docs: [] },
+    "ticket-to-ride": { cols: ["players", "members"], docs: [] },
+    "area-claiming": { cols: ["deck", "battles", "fights", "claims", "players", "hands", "log", "trades", "teams", "members"], docs: ["settings/game", "map/main"] }
+  };
+
+  function $(id) { return document.getElementById(id); }
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function textOn(hex) {
+    var m = /^#?([0-9a-f]{6})$/i.exec(hex || "");
+    if (!m) return "#fff";
+    var n = parseInt(m[1], 16);
+    return (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) > 150 ? "#111" : "#fff";
+  }
+  function typeOf(id) { return TYPES.filter(function (t) { return t.id === id; })[0]; }
+  function bullet(t, small) {
+    return '<span class="bullet' + (small ? " sm" : "") + '" aria-hidden="true" style="background:' + esc(t.color) + ";color:" + textOn(t.color) + '">' + esc(t.bullet) + "</span>";
+  }
+  function lsGet(k) { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } }
+  function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  function when(ms) {
+    return new Date(ms || 0).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  }
+
+  var data = { state: "loading", me: null, games: [], hides: {} };
+  var db = null, cur = null, frames = {};
+
+  /* ---------- passwords: salted SHA-256, checked in the page ---------- */
+  function randHex(n) {
+    var a = new Uint8Array(n); crypto.getRandomValues(a);
+    return Array.prototype.map.call(a, function (b) { return ("0" + b.toString(16)).slice(-2); }).join("");
+  }
+  async function sha(s) {
+    var buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+    return Array.prototype.map.call(new Uint8Array(buf), function (b) { return ("0" + b.toString(16)).slice(-2); }).join("");
+  }
+  async function makeSecret(pw) { var salt = randHex(16); return { salt: salt, passHash: await sha(salt + pw) }; }
+  async function matches(g, pw) { return !g.passHash || (await sha((g.salt || "") + pw)) === g.passHash; }
+
+  /* ---------- dialogs ---------- */
+  function dialog(html, wire) {
+    return new Promise(function (resolve) {
+      var ov = $("ov");
+      ov.innerHTML = '<div class="panel" role="dialog" aria-modal="true">' + html + "</div>";
+      ov.hidden = false;
+      function done(v) { ov.hidden = true; ov.innerHTML = ""; document.removeEventListener("keydown", onKey); resolve(v); }
+      function onKey(e) { if (e.key === "Escape") done(null); }
+      document.addEventListener("keydown", onKey);
+      wire(ov.firstChild, done);
+      var first = ov.querySelector("input,select");
+      if (first) first.focus();
+    });
+  }
+
+  function createDialog(type) {
+    var cities = type.id === "rail-rush" ? ["toronto", "montreal", "boston"] : (type.cities || null), rail = !!cities;
+    return dialog(
+      "<h2>Host " + esc(type.name) + "</h2>" +
+      "<p>You will be the host of this game. Other players need the password to join a team.</p>" +
+      '<form id="cf" autocomplete="off">' +
+      '<label class="field"><span>Your name</span><input id="cn" maxlength="24" value="' + esc(lsGet("tg.name")) + '" required></label>' +
+      '<label class="field"><span>Game name (optional)</span><input id="cg" maxlength="40" placeholder="' + esc(when(Date.now())) + '"></label>' +
+      (rail ? '<label class="field"><span>City</span><select id="cc">' + cities.map(function (c) { return '<option value="' + c + '">' + esc(CITY[c]) + "</option>"; }).join("") + "</select></label>" : "") +
+      '<label class="field"><span>Game password</span><input id="cp" type="password" minlength="3" maxlength="64" required autocomplete="new-password"></label>' +
+      '<div class="err" id="ce" role="alert"></div>' +
+      '<div class="row"><button type="button" class="btn" id="cx">Cancel</button><button type="submit" class="btn btn-go" id="cs">Create game</button></div></form>',
+      function (root, done) {
+        root.querySelector("#cx").onclick = function () { done(null); };
+        root.querySelector("#cf").onsubmit = function (e) {
+          e.preventDefault();
+          var v = {
+            name: root.querySelector("#cn").value.trim(),
+            gname: root.querySelector("#cg").value.trim(),
+            pass: root.querySelector("#cp").value,
+            city: rail ? root.querySelector("#cc").value : null
+          };
+          if (!v.name) { root.querySelector("#ce").textContent = "Enter your name."; return; }
+          if (v.pass.length < 3) { root.querySelector("#ce").textContent = "The password needs at least 3 characters."; return; }
+          done(v);
+        };
+      });
+  }
+
+  function passwordDialog(g) {
+    var t = typeOf(g.type) || { name: "this game" };
+    return dialog(
+      "<h2>Game password</h2><p>Enter the password for " + esc(g.name || t.name) + (g.hostName ? ", hosted by " + esc(g.hostName) : "") + ".</p>" +
+      '<form id="pf" autocomplete="off"><label class="field"><span>Password</span><input id="pw" type="password" required autocomplete="off"></label>' +
+      '<div class="err" id="pe" role="alert"></div>' +
+      '<div class="row"><button type="button" class="btn" id="px">Cancel</button><button type="submit" class="btn btn-go">Enter</button></div></form>',
+      function (root, done) {
+        root.querySelector("#px").onclick = function () { done(false); };
+        root.querySelector("#pf").onsubmit = async function (e) {
+          e.preventDefault();
+          var ok = false;
+          try { ok = await matches(g, root.querySelector("#pw").value); } catch (err) { console.error(err); }
+          if (!ok) { root.querySelector("#pe").textContent = "That is not the password."; root.querySelector("#pw").select(); return; }
+          done(true);
+        };
+      }).then(function (v) { return v === true; });
+  }
+
+  function newPasswordDialog() {
+    return dialog(
+      "<h2>Change password</h2><p>Players who already entered the old password stay in the game.</p>" +
+      '<form id="nf" autocomplete="off"><label class="field"><span>New password</span><input id="np" type="password" minlength="3" maxlength="64" required autocomplete="new-password"></label>' +
+      '<div class="err" id="ne" role="alert"></div>' +
+      '<div class="row"><button type="button" class="btn" id="nx">Cancel</button><button type="submit" class="btn btn-go">Change password</button></div></form>',
+      function (root, done) {
+        root.querySelector("#nx").onclick = function () { done(null); };
+        root.querySelector("#nf").onsubmit = function (e) {
+          e.preventDefault();
+          var v = root.querySelector("#np").value;
+          if (v.length < 3) { root.querySelector("#ne").textContent = "The password needs at least 3 characters."; return; }
+          done(v);
+        };
+      });
+  }
+
+  function confirmDialog(title, text, okLabel) {
+    return dialog("<h2>" + esc(title) + "</h2><p>" + esc(text) + '</p><div class="row"><button type="button" class="btn" id="cn-no">Cancel</button><button type="button" class="btn btn-go" id="cn-yes">' + esc(okLabel) + "</button></div>",
+      function (root, done) {
+        root.querySelector("#cn-no").onclick = function () { done(false); };
+        root.querySelector("#cn-yes").onclick = function () { done(true); };
+      }).then(function (v) { return v === true; });
+  }
+
+  function notice(title, text) {
+    return dialog("<h2>" + esc(title) + "</h2><p>" + esc(text) + '</p><div class="row"><button type="button" class="btn btn-go" id="ok">OK</button></div>',
+      function (root, done) { root.querySelector("#ok").onclick = function () { done(true); }; });
+  }
+
+  /* ---------- access, shared with the game frames as window.parent.TG ---------- */
+  function gameById(id) { return data.games.filter(function (g) { return g.id === id; })[0]; }
+  async function loadGame(id) {
+    var g = gameById(id);
+    if (g) return g;
+    var d = await db.doc("games/" + id).get();
+    return d.exists ? Object.assign({ id: d.id }, d.data()) : null;
+  }
+  async function isMember(g) {
+    try { return (await db.doc("games/" + g.id + "/members/" + data.me).get()).exists; } catch (e) { return false; }
+  }
+  async function requirePassword(gid) {
+    if (!db || !data.me) return false;
+    var g = await loadGame(gid);
+    if (!g) return false;
+    if (g.createdBy === data.me || await isMember(g)) return true;
+    if (!(await passwordDialog(g))) return false;
+    await db.doc("games/" + g.id + "/members/" + data.me).set({ at: Date.now() });
+    return true;
+  }
+  async function changePassword(gid) {
+    var g = await loadGame(gid);
+    if (!g || g.createdBy !== data.me) return false;
+    var pw = await newPasswordDialog();
+    if (!pw) return false;
+    await db.doc("games/" + gid).update(await makeSecret(pw));
+    return true;
+  }
+  window.TG = { requirePassword: requirePassword, changePassword: changePassword };
+
+  async function mayEnter(g) {
+    if (g.createdBy === data.me || g.status === "ended") return true;
+    if (await isMember(g)) return true;
+    if (g.spectators) return true;
+    return requirePassword(g.id);
+  }
+
+  /* ---------- screens ---------- */
+  function show(v) {
+    ["home", "start", "ongoing", "past"].forEach(function (k) { $("v-" + k).hidden = v !== k; });
+    $("views").hidden = v === "game";
+    $("stage").hidden = v !== "game";
+    $("back").hidden = v === "home";
+    $("crumb").textContent = v === "game" && cur ? cur.name : "";
+    if (v !== "game") $("views").scrollTop = 0;
+  }
+
+  function renderStart() {
+    $("typelist").innerHTML = TYPES.map(function (t) {
+      return '<button class="game" type="button" data-t="' + esc(t.id) + '">' + bullet(t) +
+        "<span><strong>" + esc(t.name) + '</strong><span class="sub">' + esc(t.tag) + '</span><span class="meta">' + esc(t.meta) + "</span></span>" +
+        '<span class="chev" aria-hidden="true">›</span></button>';
+    }).join("");
+  }
+
+  function signedOut(el) { el.innerHTML = '<p class="note">Sign in to see games.</p>'; }
+
+  function renderOngoing() {
+    var el = $("ongoinglist");
+    if (data.state === "loading") { el.innerHTML = '<p class="note">Loading games…</p>'; return; }
+    if (data.state === "out") { signedOut(el); return; }
+    var list = data.games.filter(function (g) { return g.status === "active" && typeOf(g.type); })
+      .sort(function (a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
+    if (!list.length) { el.innerHTML = '<p class="note" style="margin-top:0">No games are running. Start one from the home screen.</p>'; return; }
+    el.innerHTML = '<div class="stack">' + list.map(function (g) {
+      var t = typeOf(g.type), mine = g.createdBy === data.me;
+      return '<div class="entry">' + bullet(t) +
+        "<div><strong>" + esc(g.name || t.name) + '</strong><span class="sub">' + esc(t.name) + (g.city ? " · " + esc(CITY[g.city] || g.city) : "") +
+        (g.hostName ? " · hosted by " + esc(g.hostName) : "") + "</span>" +
+        '<div class="tags">' + (mine ? '<span class="tag you">You are hosting</span>' : "") +
+        (g.passHash ? '<span class="tag">Locked</span>' : "") + (g.spectators ? '<span class="tag">Spectators welcome</span>' : "") + "</div></div>" +
+        '<button class="small go" type="button" data-e="' + esc(g.id) + '">' + (mine ? "Resume" : g.spectators ? "Watch or join" : "Join") + "</button></div>";
+    }).join("") + "</div>";
+  }
+
+  function renderPast() {
+    var el = $("pastlist");
+    if (data.state === "loading") { el.innerHTML = '<p class="note">Loading games…</p>'; return; }
+    if (data.state === "out") { signedOut(el); return; }
+    var list = data.games.filter(function (g) {
+      return g.status === "ended" && typeOf(g.type) && (g.participants || []).indexOf(data.me) >= 0 && !data.hides[g.id + "__" + data.me];
+    }).sort(function (a, b) { return (b.endedAt || 0) - (a.endedAt || 0); });
+    if (!list.length) {
+      el.innerHTML = '<p class="note" style="margin-top:0">No finished games yet. When a host ends a game it shows up here for everyone who joined a team.</p>';
+      return;
+    }
+    el.innerHTML = '<div class="stack">' + list.map(function (g) {
+      var t = typeOf(g.type);
+      return '<div class="entry">' + bullet(t, true) +
+        "<div><strong>" + esc(g.name || t.name) + '</strong><span class="sub">' + esc(t.name) + (g.city ? " · " + esc(CITY[g.city] || g.city) : "") +
+        " · ended " + esc(when(g.endedAt)) + " · " + (g.participants || []).length + ' players</span>' +
+        (g.summary ? '<span class="res">' + esc(g.summary) + "</span>" : "") + "</div>" +
+        '<div class="actions"><button class="small go" type="button" data-o="' + esc(g.id) + '">Open</button>' +
+        '<button class="small warn" type="button" data-h="' + esc(g.id) + '">Hide</button></div></div>';
+    }).join("") + '</div><p class="note">Hide removes a game from your list only. Once every player has hidden it, its data is deleted for good.</p>';
+  }
+
+  /* ---------- game frames ---------- */
+  function syncTheme(f) {
+    try {
+      var d = f.contentDocument.documentElement, t = document.documentElement.getAttribute("data-theme");
+      if (t) d.setAttribute("data-theme", t); else d.removeAttribute("data-theme");
+    } catch (e) {}
+  }
+  new MutationObserver(function () {
+    Object.keys(frames).forEach(function (k) { syncTheme(frames[k]); });
+  }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+
+  /* ---------- light / dark toggle (per user, remembered in this browser) ---------- */
+  (function () {
+    var root = document.documentElement, btn = document.getElementById("theme");
+    var mq = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+    function eff() { var t = root.getAttribute("data-theme"); return t || (mq && mq.matches ? "dark" : "light"); }
+    function paint() { var d = eff() === "dark"; btn.textContent = d ? "\u2600\uFE0F" : "\u{1F319}"; btn.title = d ? "Switch to light mode" : "Switch to dark mode"; }
+    try { var sv = localStorage.getItem("tg-theme"); if (sv === "light" || sv === "dark") root.setAttribute("data-theme", sv); } catch (e) {}
+    btn.addEventListener("click", function () {
+      var n = eff() === "dark" ? "light" : "dark";
+      root.setAttribute("data-theme", n);
+      try { localStorage.setItem("tg-theme", n); } catch (e) {}
+      paint();
+    });
+    if (mq && mq.addEventListener) mq.addEventListener("change", paint);
+    new MutationObserver(paint).observe(root, { attributes: true, attributeFilter: ["data-theme"] });
+    paint();
+  })();
+
+  function openFrame(g) {
+    var t = typeOf(g.type);
+    if (!t || !HTML[t.id]) return;
+    cur = g;
+    var f = frames[g.id];
+    if (!f) {
+      f = document.createElement("iframe");
+      f.className = "frame";
+      f.title = g.name || t.name;
+      f.addEventListener("load", function () { syncTheme(f); });
+      f.srcdoc = HTML[t.id].split("__TGID__").join(g.id);
+      $("stage").appendChild(f);
+      frames[g.id] = f;
+    }
+    Object.keys(frames).forEach(function (k) { frames[k].hidden = k !== g.id; });
+    show("game");
+  }
+
+  async function enterGame(id) {
+    var g = await loadGame(id);
+    if (!g) { await notice("Game not found", "That game no longer exists."); return; }
+    if (!(await mayEnter(g))) return;
+    openFrame(g);
+  }
+
+  /* ---------- creating a game ---------- */
+  async function startGame(typeId) {
+    var t = typeOf(typeId);
+    if (!t) return;
+    if (!db || data.state !== "in") { await notice("Sign in to host", "You need to be signed in to start a game."); return; }
+    var v = await createDialog(t);
+    if (!v) return;
+    var gid = "g" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+    var secret = await makeSecret(v.pass);
+    var g = Object.assign({
+      type: t.id, name: v.gname || when(Date.now()), createdBy: data.me, hostName: v.name,
+      createdAt: Date.now(), status: "active", spectators: false
+    }, secret);
+    if (v.city) g.city = v.city;
+    lsSet("tg.name", v.name);
+    try {
+      await db.doc("games/" + gid).set(g);
+      await db.doc("games/" + gid + "/players/" + data.me).set({ name: v.name });
+      if (t.id === "area-claiming") {
+        await db.doc("games/" + gid + "/teams/t1").set({ name: "Team 1", color: "#e6194b", order: 1 });
+        await db.doc("games/" + gid + "/teams/t2").set({ name: "Team 2", color: "#4363d8", order: 2 });
+      }
+    } catch (e) {
+      console.error(e);
+      await notice("Could not start the game", "Check your connection and that you have contributor access, then try again.");
+      return;
+    }
+    openFrame(Object.assign({ id: gid }, g));
+  }
+
+  /* ---------- past games: hide, and delete once everyone has hidden ---------- */
+  async function removeAll(path, docs) {
+    for (var i = 0; i < docs.length; i += 20) {
+      await Promise.all(docs.slice(i, i + 20).map(function (d) { return db.doc(path + "/" + d.id).delete(); }));
+    }
+  }
+  async function purge(g, hideDocs) {
+    var p = PURGE[g.type] || { cols: [], docs: [] };
+    for (var i = 0; i < p.cols.length; i++) {
+      var path = "games/" + g.id + "/" + p.cols[i];
+      await removeAll(path, (await db.collection(path).get()).docs);
+    }
+    for (var j = 0; j < p.docs.length; j++) await db.doc("games/" + g.id + "/" + p.docs[j]).delete().catch(function () {});
+    await removeAll("hides", hideDocs);
+    await db.doc("games/" + g.id).delete();
+  }
+  async function hideGame(id) {
+    var g = gameById(id);
+    if (!g || !db) return;
+    try {
+      await db.doc("hides/" + id + "__" + data.me).set({ gid: id, uid: data.me, at: Date.now() });
+      data.hides[id + "__" + data.me] = 1;
+      renderPast();
+      var q = await db.collection("hides").where("gid", "==", id).get();
+      var got = {}; q.docs.forEach(function (d) { got[d.data().uid] = 1; });
+      var ps = g.participants || [];
+      if (ps.length && ps.every(function (u) { return got[u]; })) await purge(g, q.docs);
+    } catch (e) { console.error(e); }
+  }
+  function armed(btn, fn) {
+    if (btn.dataset.armed) { fn(); return; }
+    var o = btn.textContent;
+    btn.dataset.armed = "1"; btn.textContent = "Tap again";
+    setTimeout(function () { delete btn.dataset.armed; btn.textContent = o; }, 3000);
+  }
+
+  /* ---------- live data ---------- */
+  async function connect() {
+    try {
+      if (!window.claude) { data.state = "out"; renderOngoing(); renderPast(); return; }
+      var user = await claude.use("user"), d = await claude.use("db");
+      if (!user || !d) { data.state = "out"; renderOngoing(); renderPast(); return; }
+      db = d;
+      data.me = await user.id();
+      data.state = "in";
+      renderOngoing(); renderPast();
+      db.collection("games").onSnapshot(function (q) {
+        data.games = q.docs.map(function (x) { return Object.assign({ id: x.id }, x.data()); });
+        renderOngoing(); renderPast();
+      }, function (e) { console.error(e); });
+      db.collection("hides").onSnapshot(function (q) {
+        var h = {}; q.docs.forEach(function (x) { h[x.id] = 1; });
+        data.hides = h; renderPast();
+      }, function (e) { console.error(e); });
+    } catch (e) {
+      console.error(e); data.state = "out"; renderOngoing(); renderPast();
+    }
+  }
+
+  /* ---------- wiring ---------- */
+  $("go-start").onclick = function () { show("start"); };
+  $("go-ongoing").onclick = function () { renderOngoing(); show("ongoing"); };
+  $("go-past").onclick = function () { renderPast(); show("past"); };
+  $("brand").onclick = function () { show("home"); };
+  $("back").onclick = function () { show("home"); };
+  $("typelist").onclick = function (e) { var b = e.target.closest("[data-t]"); if (b) startGame(b.dataset.t); };
+  $("ongoinglist").onclick = function (e) { var b = e.target.closest("[data-e]"); if (b) enterGame(b.dataset.e); };
+  $("pastlist").onclick = function (e) {
+    var o = e.target.closest("[data-o]"), h = e.target.closest("[data-h]");
+    if (o) enterGame(o.dataset.o);
+    if (h) {
+      var id = h.dataset.h;
+      confirmDialog("Hide this game?", "It disappears from your Past Games list only. Once every player has hidden it, its data is deleted for good.", "Hide").then(function (ok) { if (ok) hideGame(id); });
+    }
+  };
+
+
+  /* ---------- account (Firebase): guest by default, optional username/password or Google ---------- */
+  (function () {
+    var A = window.TGAuth, btn = $("acct");
+    if (!A) return;
+    function label() { var i = A.info(); btn.hidden = !i; if (i) btn.textContent = i.guest ? "Guest \u00b7 Sign in" : i.name || "Account"; }
+    function accountDialog() {
+      var i = A.info(); if (!i) return;
+      var html = i.guest
+        ? '<h2>Sign in</h2><p>You are playing as a guest on this browser. Create an account to keep your games across devices; games you have already joined carry over.</p>' +
+          '<label class="field"><span>Username</span><input id="ac-u" autocomplete="username" maxlength="30"></label>' +
+          '<label class="field"><span>Password</span><input id="ac-p" type="password" autocomplete="current-password"></label>' +
+          '<p class="note" id="ac-err" style="color:var(--bad,#c00)"></p>' +
+          '<div class="row"><button type="button" class="btn" id="ac-in">Sign in</button><button type="button" class="btn btn-go" id="ac-up">Create account</button></div>' +
+          '<div class="row"><button type="button" class="btn" id="ac-g">Continue with Google</button></div>' +
+          '<div class="row"><button type="button" class="btn" id="ac-x">Close</button></div>'
+        : '<h2>' + esc(i.name || "Account") + '</h2><p>You are signed in. Your games follow you to any device where you sign in.</p>' +
+          '<div class="row"><button type="button" class="btn" id="ac-x">Close</button><button type="button" class="btn btn-go" id="ac-out">Sign out</button></div>';
+      dialog(html, function (root, done) {
+        function go(fn) {
+          var err = root.querySelector("#ac-err");
+          if (err) err.textContent = "";
+          Promise.resolve().then(fn).then(function () { done(true); location.reload(); })
+            .catch(function (e) { if (err) err.textContent = e && e.message || ""; });
+        }
+        function cred() { return [root.querySelector("#ac-u").value, root.querySelector("#ac-p").value]; }
+        root.querySelector("#ac-x").onclick = function () { done(null); };
+        var b;
+        if ((b = root.querySelector("#ac-in"))) b.onclick = function () { go(function () { var c = cred(); return A.signIn(c[0], c[1]); }); };
+        if ((b = root.querySelector("#ac-up"))) b.onclick = function () { go(function () { var c = cred(); return A.signUp(c[0], c[1]); }); };
+        if ((b = root.querySelector("#ac-g"))) b.onclick = function () { go(function () { return A.google(); }); };
+        if ((b = root.querySelector("#ac-out"))) b.onclick = function () { go(function () { return A.signOut(); }); };
+      });
+    }
+    btn.addEventListener("click", accountDialog);
+    A.ready().then(label, function () {});
+  })();
+
+  renderStart(); renderOngoing(); renderPast(); show("home"); connect();
+})();
+</script>

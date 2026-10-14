@@ -1,0 +1,69 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Ticket to Ride</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#f6f5f1;--fg:#1c1c1c;--pn:#fff;--mu:#6b6b70;--bd:#d8d6cf;--ac:#7b4fd1}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#15171a;--fg:#eee;--pn:#23262b;--mu:#9aa0a6;--bd:#3a3e45;--ac:#a98bf0}}
+:root[data-theme="dark"]{--bg:#15171a;--fg:#eee;--pn:#23262b;--mu:#9aa0a6;--bd:#3a3e45;--ac:#a98bf0}
+html{height:100%}*{box-sizing:border-box}
+body{margin:0;min-height:100%;background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 16px;background:var(--pn);border-bottom:1px solid var(--bd)}
+h1{font-size:17px;margin:0 auto 0 0}h3{margin:0 0 6px}
+main{max-width:640px;margin:0 auto;padding:12px 16px 24px}
+button{font:inherit;color:var(--fg);background:var(--pn);border:1px solid var(--bd);border-radius:8px;padding:6px 12px;cursor:pointer}
+button.dg{color:#c0392b}button:disabled{opacity:.5}
+.card{background:var(--pn);border:1px solid var(--bd);border-radius:10px;padding:12px;margin:10px 0}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}.mu{color:var(--mu);font-size:13px}
+.chip{font-size:12px;padding:1px 8px;border-radius:99px;border:1px solid var(--bd)}
+.hide{display:none!important}
+.ban{border-color:var(--ac)}
+</style></head><body>
+<header><h1>Ticket to Ride</h1><span class="chip" id="city"></span><span class="chip hide" id="hostTag">You are the host</span></header>
+<main>
+ <div class="card ban hide" id="ended"><h3>Game ended</h3><div class="mu">This game has been ended by the host.</div></div>
+ <div class="card"><h3 id="gname">Ticket to Ride</h3><div class="mu" id="who"></div>
+  <p class="mu" style="margin:10px 0 0">The game board is not built yet. Nothing to play here for now.</p></div>
+ <div id="hostbox" class="hide">
+  <div class="card"><h3>Access</h3><div class="mu" id="acc-st"></div>
+   <label class="row" style="gap:8px"><input type="checkbox" id="acc-spec"> Allow spectators</label>
+   <div class="mu">With spectators on, anyone can watch and the password is only needed to join a team. With it off, the password is needed to open the game at all.</div>
+   <div class="row"><button id="acc-pw">Change password</button><span class="mu" id="acc-msg"></span></div></div>
+  <div class="card"><h3>End game</h3><div class="mu">Freezes the game for everyone and saves it to Past Games. This cannot be undone.</div>
+   <div class="row"><button class="dg" id="eg">End game</button></div><div class="mu" id="em"></div></div>
+ </div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const CITY={montreal:'Montréal'};
+const S={db:null,me:null,gid:null,game:null,host:false,members:new Set()};
+const RO=()=>!!(S.game&&S.game.status==='ended');
+function askC(title,text,ok){return new Promise(res=>{const o=document.createElement('div');
+ o.style.cssText='position:fixed;inset:0;z-index:99;background:#0008;display:flex;align-items:center;justify-content:center;padding:16px';
+ o.innerHTML='<div class="card" style="max-width:360px;width:100%;margin:0" role="dialog"><h3></h3><div class="mu" style="font-size:14px"></div><div class="row" style="justify-content:flex-end"><button id="ac-n">Cancel</button><button id="ac-y" class="dg"></button></div></div>';
+ o.querySelector('h3').textContent=title;o.querySelector('.mu').textContent=text;o.querySelector('#ac-y').textContent=ok;
+ const done=v=>{o.remove();res(v)};o.querySelector('#ac-n').onclick=()=>done(false);o.querySelector('#ac-y').onclick=()=>done(true);
+ o.onclick=e=>{if(e.target===o)done(false)};document.body.appendChild(o)})}
+function render(){const g=S.game;if(!g)return;
+ $('gname').textContent=g.name||'Ticket to Ride';$('city').textContent=CITY[g.city]||g.city||'';
+ $('who').textContent=g.hostName?'Hosted by '+g.hostName:'';
+ $('hostTag').classList.toggle('hide',!S.host);$('ended').classList.toggle('hide',!RO());
+ $('hostbox').classList.toggle('hide',!S.host||RO());
+ $('acc-spec').checked=!!g.spectators;
+ $('acc-st').textContent=g.spectators?'Spectators can watch without the password.':'Everyone needs the password to open this game.'}
+$('acc-spec').onchange=()=>{if(!S.host||RO())return;
+ S.db.doc('games/'+S.gid).update({spectators:$('acc-spec').checked}).catch(e=>{console.error(e);$('acc-msg').textContent='Could not save.'})};
+$('acc-pw').onclick=async()=>{if(!S.host||RO())return;const ok=await window.parent.TG.changePassword(S.gid);$('acc-msg').textContent=ok?'Password changed.':''};
+$('eg').onclick=async()=>{if(!S.host||RO())return;
+ if(!await askC('End game','End this game for everyone? It is frozen and saved to Past Games. This cannot be undone.','End game'))return;
+ $('em').textContent='Ending the game…';
+ const ps=[...new Set([S.game.createdBy,S.me].concat([...S.members]).filter(Boolean))];
+ try{await S.db.doc('games/'+S.gid).update({status:'ended',endedAt:Date.now(),endedBy:S.me,participants:ps,summary:'Game ended',result:{}});$('em').textContent=''}
+ catch(e){console.error(e);$('em').textContent='Could not end the game. Check your connection and try again.'}};
+async function init(){try{
+ if(typeof claude==='undefined'||!window.TG_GID)return;
+ const user=await claude.use('user'),db=await claude.use('db');if(!db||!user)return;
+ S.db=db;S.me=await user.id();S.gid=window.TG_GID;
+ db.collection('games/'+S.gid+'/members').onSnapshot(q=>{S.members=new Set(q.docs.map(d=>d.id))},e=>console.error(e));
+ db.doc('games/'+S.gid).onSnapshot(d=>{if(!d.exists)return;S.game=Object.assign({id:d.id},d.data());S.host=S.game.createdBy===S.me;render()},e=>console.error(e));
+}catch(e){console.error(e)}}
+init();
+</script></body></html>
