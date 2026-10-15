@@ -310,6 +310,7 @@ button.game:hover{border-color:var(--mute)}
     if (g.createdBy === data.me || g.status === "ended") return true;
     if (await isMember(g)) return true;
     if (g.spectators) return true;
+    if (g.startedAt) { await notice("Game already started", "This game has started, so new players can no longer join."); return false; }
     return requirePassword(g.id);
   }
 

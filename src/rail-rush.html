@@ -215,8 +215,8 @@ function renderTeams(){const mt=myTeam(),p=S.players[povUid()]||{},tk=ACT(),cnt=
  $('bal').textContent=mt?'\u{1FA99} '+S.board.bal[mt]:'';$('who').textContent=mt?TC(mt).name:(S.db?(canJoin()?'No team yet':'Watching'):'Not signed in');
  const f=document.activeElement;
  if(!(f&&f.id==='pn')){
-  const jb=k=>{const t=TC(k),on=mt===k;return '<button id="j'+k+'" style="'+(on?'background:'+esc(t.color)+';border-color:'+esc(t.color)+';color:'+textOn(t.color):'border-color:'+esc(t.color))+'">'+(on?'You are on ':'Join ')+esc(t.name)+'</button>'};
-  $('me').innerHTML=RO()?'':S.db?'<div class="card"><h3>You</h3><input id="pn" placeholder="Your name" value="'+esc(p.name||'')+'"><div class="row">'+tk.map(jb).join('')+'</div><div class="mu" style="margin-top:6px">'+(canJoin()?(mt?'Switch teams any time.':(p.team&&!tk.includes(p.team)?'Your team was removed by the host. Pick a team to keep playing.':'Pick a team to start adding coins.')):'You are watching this game. Joining a team needs the game password.')+'</div></div>':'<div class="card mu">Sign in to join the game.</div>';
+  const lk=teamsLocked(),jb=k=>{const t=TC(k),on=mt===k;return '<button id="j'+k+'"'+(lk&&!on?' disabled':'')+' style="'+(lk&&!on?'opacity:.45;':'')+(on?'background:'+esc(t.color)+';border-color:'+esc(t.color)+';color:'+textOn(t.color):'border-color:'+esc(t.color))+'">'+(on?'You are on ':'Join ')+esc(t.name)+'</button>'};
+  $('me').innerHTML=RO()?'':S.db?'<div class="card"><h3>You</h3><input id="pn" placeholder="Your name" value="'+esc(p.name||'')+'"><div class="row">'+tk.map(jb).join('')+'</div><div class="mu" style="margin-top:6px">'+(lk?(mt?'The game has started, so teams are locked.':'The game has started, so teams are locked. You are watching.'):canJoin()?(mt?'Switch teams any time.':(p.team&&!tk.includes(p.team)?'Your team was removed by the host. Pick a team to keep playing.':'Pick a team to start adding coins.')):'You are watching this game. Joining a team needs the game password.')+'</div></div>':'<div class="card mu">Sign in to join the game.</div>';
   tk.forEach(k=>{const b=$('j'+k);if(b)b.onclick=()=>joinTeam(k,p)})}
  $('teams').innerHTML=tk.map(k=>{const t=TC(k),m=Object.values(S.players).filter(x=>x.team===k).map(x=>esc(x.name||'Player'));
   return '<div class="card"><div class="row" style="margin:0"><span class="dot" style="background:'+esc(t.color)+'"></span><b class="sp">'+esc(t.name)+(mt===k?' (your team)':'')+'</b><b>\u{1FA99} '+S.board.bal[k]+'</b></div><div class="mu">'+cnt[k]+' stations led &middot; '+coins[k]+' coins on the map</div><div class="mu">'+(m.length?m.join(', '):'No members yet')+'</div></div>'}).join('');
@@ -391,7 +391,7 @@ setInterval(tickExpiry,20000);
 async function startGame(){if(!S.host||!S.db||!S.gid||RO()||S.board.started)return;
  if(!await askC('Start game','Start the game now? Challenges go live and players can spend coins.','Start game'))return;
  $('gst').textContent='Starting\u2026';
- try{await S.db.collection(G()+'/events').add({type:'start',by:S.me,at:Date.now()})}
+ try{await S.db.collection(G()+'/events').add({type:'start',by:S.me,at:Date.now()});S.db.doc('games/'+S.gid).update({startedAt:Date.now()}).catch(e=>console.error(e))}
  catch(e){console.error(e);$('gst').textContent='Could not start the game. Check your connection and that you have contributor access, then try again.'}}
 function renderLob(){const b=$('lob'),st=S.board.started,show=!!cur()&&!RO()&&!st,k=(show?'1':'0')+(S.host?'h':'p');
  $('gst').textContent=st?'Started.':'Not started yet.';$('sg2').disabled=st;if(document.activeElement!==$('pr'))$('pr').value=pinkReward();
@@ -436,8 +436,9 @@ function openGame(id){const g=S.games.find(x=>x.id===id);if(!g||!NETS[g.city])re
   S.subs.push(db.collection(p+'/members').onSnapshot(q=>{S.members=new Set(q.docs.map(d=>d.id));renderTeams();renderPop(true)},err));
   paint();renderPop();renderTeams();renderChal();form();renderHost();importUI();S.gk=gkey();renderRO();renderMsub();renderLob();updateStat();renderAccess();V('game')}
 const canJoin=()=>S.host||S.members.has(S.me);
+const teamsLocked=()=>{if(!S.board.started)return false;const p=S.players[povUid()];return !(p&&p.team&&!ACT().includes(p.team))};
 async function joinTeam(k,p){
- if(RO())return;
+ if(RO()||teamsLocked())return;
  const n=($('pn')&&$('pn').value.trim())||(p&&p.name)||'Player';
  if(!canJoin()){const ok=await window.parent.TG.requirePassword(S.gid);if(!ok)return}
  S.db.doc(G()+'/players/'+S.me).set({name:n,team:k}).catch(e=>console.error(e))}

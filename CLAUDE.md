@@ -16,5 +16,6 @@ Companion site for city-scale transit games (Rail Rush, Area Claiming, Ticket to
 - Edit files in `src/`, run `npm run build`, run the relevant tests, then deploy.
 - Data lives under `games/{gid}/...` (events, players, teams, challenges, members) and `hides/`. Rail Rush state is derived from an append-only `events` log by the pure function `fold()`; change rules there, not by mutating stored state.
 - Keep games free of Firebase imports; add any new backend capability in `platform.js`.
+- Once a Rail Rush game has started, teams are locked (`teamsLocked()`): no joining or switching, except for players whose team the host removed. The game doc gets `startedAt`, and the shell refuses late non-member joiners unless spectators are allowed. Tests: `test/t_lock.py`.
 - Do not use `alert/confirm/prompt`; use in-page dialogs.
 - Deploy: commit and push to GitHub; Vercel builds automatically (`vercel.json`).

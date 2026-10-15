@@ -1,0 +1,45 @@
+"""Teams and joining lock once a Rail Rush game has started."""
+from harness import *
+w=World(); c=Check()
+for u in ['u1','u2','u3','u4','u5']: w.user(u)
+gid=host_game(w,'u1','rail-rush','Lock','pw1',host='Hana')
+for u in ['u2','u3']:
+    join_from_list(w,u,gid,pw='pw1'); w.pump(300)
+fh=w.frame('u1'); f2=w.frame('u2'); f3=w.frame('u3')
+def tab(fr,label): fr.click(f'#nav button:has-text("{label}")'); w.pump(250)
+tab(f2,'Teams'); tab(f3,'Teams')
+f2.fill('#pn','Ann'); f2.click('#jA'); w.pump(500)          # u2 picks A before the start; u3 stays teamless
+tab(fh,'Host'); fh.click('#sg2'); w.pump(300); fh.click('#ac-y'); w.pump(1500); w.pump(600)
+c('game doc records startedAt',bool(w.games()[gid].get('startedAt')))
+tab(f2,'Teams'); tab(f3,'Teams'); w.pump(300)
+c('u2 (on A): other team button disabled',f2.is_disabled('#jB'))
+f2.evaluate("document.getElementById('jB').disabled=false"); f2.click('#jB'); w.pump(500)
+c('u2 cannot switch team even by forcing the click',w.docs[f'games/{gid}/players/u2']['team']=='A')
+c('u3 (no team): both join buttons disabled',f3.is_disabled('#jA') and f3.is_disabled('#jB'))
+f3.evaluate("document.querySelectorAll('#me button').forEach(b=>b.disabled=false)"); f3.click('#jA'); w.pump(500)
+c('u3 cannot join a team after start',w.docs.get(f'games/{gid}/players/u3',{}).get('team') is None)
+c('locked message shown',('locked' in f3.inner_text('#me')))
+# new player, no spectators: refused with a notice
+goto_home(w,'u4'); join_from_list(w,'u4',gid,pw='pw1'); w.pump(500)
+c('late joiner sees the "already started" notice',w.pages['u4'].query_selector('#ov:not([hidden])') is not None and 'started' in w.pages['u4'].inner_text('#ov').lower(),w.pages['u4'].inner_text('#ov')[:80])
+c('late joiner was not added as a member',f'games/{gid}/members/u4' not in w.docs)
+w.pages['u4'].click('#ok'); w.pump(200)
+# spectators on: may watch but still cannot take a team
+w.docs[f'games/{gid}']['spectators']=True; w.pump(600)
+goto_home(w,'u5'); join_from_list(w,'u5',gid); w.pump(900)
+f5=w.frame('u5'); c('spectator can open the game',f5 is not None)
+if f5:
+    tab(f5,'Teams'); c('spectator cannot join a team',f5.is_disabled('#jA') if f5.query_selector('#jA') else True)
+# host removes a 3rd team after start: its players may re-pick
+tab(fh,'Host'); fh.click('#t3a'); w.pump(600)
+tab(f3,'Teams'); w.pump(300)
+c('after adding C post-start, teamless u3 is still locked',f3.is_disabled('#jC'))
+w.docs[f'games/{gid}/players/u3']={'name':'Ben','team':'C'}; w.pump(600)
+fh.click('#t3x'); w.pump(300); fh.click('#ac-y'); w.pump(1200); w.pump(500)
+tab(f3,'Teams'); w.pump(300)
+c('player whose team was removed can pick again',not f3.is_disabled('#jA'))
+f3.click('#jA'); w.pump(500)
+c('...and lands on that team',w.docs[f'games/{gid}/players/u3']['team']=='A')
+print([e for e in w.errors if 'TUNNEL' not in e][:3])
+print(f'{c.n-len(c.fail)}/{c.n} passed; failed: {c.fail}')
+w.close()
