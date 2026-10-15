@@ -131,8 +131,8 @@ function setNet(key){NET=NETS[key];LC={};ST={};NET.lines.forEach(l=>LC[l.id]=l);
  dots=NET.regions.map(r=>{const g=mk('g',{}),hit=mk('circle',{cx:r.x,cy:r.y,fill:'transparent','data-id':r.id},g),h=mk('circle',{cx:r.x,cy:r.y,fill:'none',stroke:'none'},g),c=mk('circle',{cx:r.x,cy:r.y,stroke:'#222','stroke-width':2,'data-id':r.id},g),t=mk('text',{class:'lab'},g),n=mk('text',{'text-anchor':'middle','font-weight':'700',dy:'.35em'},g);t.textContent=r.name;n.style.pointerEvents='none';h.style.pointerEvents='none';n.textContent='0';return{r,c,h,hit,t,n}});
  vb=null;fitted=false;$('netinfo').textContent=NET.regions.length+' stations on '+NET.lines.length+' lines: '+NET.lines.map(l=>l.name).join(', ')+'.'}const W=()=>svg.clientWidth||360,H=()=>svg.clientHeight||400;
 function fit(){const xs=NET.regions.map(r=>r.x),ys=NET.regions.map(r=>r.y),p=40,x0=Math.min(...xs)-p,x1=Math.max(...xs)+p,y0=Math.min(...ys)-p,y1=Math.max(...ys)+p;let w=x1-x0,h=w*H()/W();if(h<y1-y0){h=y1-y0;w=h*W()/H()}vb={x:(x0+x1)/2-w/2,y:(y0+y1)/2-h/2,w,h};fitted=true;view()}
-function view(){svg.setAttribute('viewBox',vb.x+' '+vb.y+' '+vb.w+' '+vb.h);const k=W()/vb.w;
- dots.forEach(d=>{const ic=d.r.lines.length>1,rr=(ic?10:8)/k;d.c.setAttribute('r',rr);d.h.setAttribute('r',rr+4/k);d.h.setAttribute('stroke-width',4/k);d.n.setAttribute('x',d.r.x);d.n.setAttribute('y',d.r.y);d.n.style.fontSize=(10/k)+'px';d.hit.setAttribute('r',Math.max(rr,16/k));d.t.setAttribute('x',d.r.x+rr+3/k);d.t.setAttribute('y',d.r.y+4/k);d.t.style.fontSize=(11/k)+'px';d.t.style.strokeWidth=(3/k)+'px';d.t.style.display=(k>(ic?.9:2.4)||(S.msub==='chal'&&d.cc>0))?'':'none'})}
+function view(){svg.setAttribute('viewBox',vb.x+' '+vb.y+' '+vb.w+' '+vb.h);const k=W()/vb.w,sc=S.msub==='chal'?1:.8;
+ dots.forEach(d=>{const ic=d.r.lines.length>1,rr=sc*(ic?10:8)/k;d.c.setAttribute('r',rr);d.h.setAttribute('r',rr+4/k);d.h.setAttribute('stroke-width',4/k);d.n.setAttribute('x',d.r.x);d.n.setAttribute('y',d.r.y);d.n.style.fontSize=(10*(sc<1?.9:1)/k)+'px';d.hit.setAttribute('r',Math.max(rr,16/k));d.t.setAttribute('x',d.r.x+rr+3/k);d.t.setAttribute('y',d.r.y+4/k);d.t.style.fontSize=(11/k)+'px';d.t.style.strokeWidth=(3/k)+'px';d.t.style.display=(k>(ic?.9:2.4)||(S.msub==='chal'&&d.cc>0))?'':'none'})}
 function zoom(f,px,py){const r=svg.getBoundingClientRect(),fx=(px-r.left)/r.width,fy=(py-r.top)/r.height,w=Math.min(Math.max(vb.w*f,120),9000),h=w*vb.h/vb.w;vb={x:vb.x+(vb.w-w)*fx,y:vb.y+(vb.h-h)*fy,w,h};view()}
 const ptr=new Map();let moved=0,dn=null,pd=0;
 svg.addEventListener('pointerdown',e=>{ptr.set(e.pointerId,[e.clientX,e.clientY]);if(ptr.size===1){moved=0;dn=e.target.dataset.id}else{dn=null;pd=0}});
@@ -154,11 +154,11 @@ function liveAt(id){let h='';const B=S.board;
  if(B.pink&&B.pink.st===id)h+='<div class="mu" style="margin-top:4px">\u{1F497} <b>Get here!</b> is on this station &mdash; see the Challenges tab.</div>';return h}
 function paint(){const cm=S.msub==='chal',lv=liveSt(),pk=S.board.pink&&S.board.pink.st;
  dots.forEach(d=>{const id=d.r.id,L=S.board.lead[id],v=L?L.n:0,col=L?TC(L.t).color:null,isL=lv.has(id),isP=pk===id;
-  if(cm){d.cc=chalsAt(id).length;d.c.setAttribute('fill',isL?'#ffd600':d.cc?'#f5a623':'var(--ne)');d.c.style.fillOpacity=(d.cc||isL)?1:.45;d.n.textContent=d.cc||'';d.n.setAttribute('fill',d.cc?'#111':'var(--fg)');d.h.setAttribute('stroke',isL?'#ffd600':'none')}
-  else{d.cc=0;d.c.style.fillOpacity=1;const f=col||(isP?'#ff5fb0':isL?'#ffd600':null);d.c.setAttribute('fill',f||'var(--ne)');d.n.textContent=Math.abs(v);d.n.setAttribute('fill',f?textOn(f):'var(--fg)');d.h.setAttribute('stroke',isP?'#ff5fb0':isL?'#ffd600':'none')}
+  if(cm){d.cc=chalsAt(id).length;d.c.setAttribute('fill',isL?'#ffd600':d.cc?'#f5a623':'var(--ne)');d.c.style.fillOpacity=(d.cc||isL)?1:.15;d.c.style.strokeOpacity=(d.cc||isL)?1:.3;d.n.style.opacity=(d.cc||isL)?1:.4;d.n.textContent=d.cc||'';d.n.setAttribute('fill',d.cc?'#111':'var(--fg)');d.h.setAttribute('stroke',isL?'#ffd600':'none')}
+  else{d.cc=0;d.c.style.fillOpacity=1;d.c.style.strokeOpacity=1;d.n.style.opacity=1;const f=col||(isP?'#ff5fb0':isL?'#ffd600':null);d.c.setAttribute('fill',f||'var(--ne)');d.n.textContent=Math.abs(v);d.n.setAttribute('fill',f?textOn(f):'var(--fg)');d.h.setAttribute('stroke',isP?'#ff5fb0':isL?'#ffd600':'none')}
   const sel=S.sel===id;d.c.setAttribute('stroke',sel?'#2979ff':'#222');d.c.setAttribute('stroke-width',sel?4:2)});
  if(cm||S.msubWas)view();S.msubWas=cm}
-function renderMsub(){$('msub').innerHTML=[['coins','Coins'],['chal','Challenges']].map(([k,l])=>'<button data-m="'+k+'" class="'+(S.msub===k?'on':'')+'">'+l+'</button>').join('');
+function renderMsub(){$('msub').innerHTML=[['coins','Gameboard'],['chal','Challenge Bank']].map(([k,l])=>'<button data-m="'+k+'" class="'+(S.msub===k?'on':'')+'">'+l+'</button>').join('');
  $('msub').querySelectorAll('button').forEach(b=>b.onclick=()=>{S.msub=b.dataset.m;$('pop').innerHTML='';renderMsub();paint();renderPop()})}
 const chips=r=>r.lines.map(l=>'<span class="chip" style="border-color:'+LC[l].color+'">'+esc(LC[l].name)+'</span>').join('');
 function renderPop(soft){const p=$('pop'),r=ST[S.sel];
@@ -366,8 +366,8 @@ function planPicks(trig,n,ex){const rnd=mulberry(hstr(S.gid+':'+trig+':c')),spec
  const own=c=>(c.loc||[]).filter(i=>ST[i]);
  for(let k=0;k<n;k++){
   const ok0=pool.filter(c=>c.anywhere?free().length>0:own(c).length>0);if(!ok0.length)break;const ok1=ok0.filter(c=>c.id!==ex),ok=ok1.length?ok1:ok0;
-  const clean=ok.filter(c=>c.anywhere||own(c).every(i=>!occ.has(i))),from=clean.length?clean:ok,c=from[Math.floor(rnd()*from.length)];
-  let locs;if(c.anywhere){const f=free();locs=[f[Math.floor(rnd()*f.length)]]}else locs=own(c);
+  const clean=ok.filter(c=>c.anywhere||own(c).some(i=>!occ.has(i))),from=clean.length?clean:ok,c=from[Math.floor(rnd()*from.length)];
+  let locs;if(c.anywhere){const f=free();locs=[f[Math.floor(rnd()*f.length)]]}else{const o=own(c),a=o.filter(i=>!occ.has(i)&&!spec.has(i)),b=a.length?a:o.filter(i=>!occ.has(i)),z=b.length?b:o;locs=[z[Math.floor(rnd()*z.length)]]}
   locs.forEach(i=>occ.add(i));pool=pool.filter(x=>x.id!==c.id);picks.push({c:c.id,title:c.title,locs})}
  return picks}
 function planPink(trig){const rnd=mulberry(hstr(S.gid+':'+trig+':p')),spec=specSt(),occ=occSt(),B=S.board;
@@ -409,7 +409,7 @@ async function endGame(){if(!S.host||!S.db||!S.gid||RO())return;const em=$('em')
  const rk=tk.slice().sort((x,y)=>cnt[y]-cnt[x]||coins[y]-coins[x]||b.bal[y]-b.bal[x]),top=rk[0],tie=rk.length>1&&cnt[rk[1]]===cnt[top]&&coins[rk[1]]===coins[top]&&b.bal[rk[1]]===b.bal[top];
  const w=tie?'draw':top;
  const sum=tie?'Draw at '+cnt[top]+' stations each':TC(w).name+' won, '+cnt[top]+' stations to '+rk.slice(1).map(k=>cnt[k]).join(' and ');
- const ps=[...new Set(Object.entries(S.players).filter(([u,p])=>p&&tk.includes(p.team)).map(([u])=>u).concat([cur().createdBy,S.me].filter(Boolean)))];
+ const ps=[...new Set(Object.entries(S.players).filter(([u,p])=>p&&tk.includes(p.team)).map(([u])=>u).concat([...S.members],[cur().createdBy,S.me].filter(Boolean)))];
  const side=k=>({stations:cnt[k],coins:coins[k],balance:b.bal[k]}),res={winner:w},ti={};tk.forEach(k=>{res[k]=side(k);ti[k]=TC(k)});
  try{await S.db.doc('games/'+S.gid).update({status:'ended',endedAt:at,endedBy:S.me,participants:ps,summary:sum,result:res,teamInfo:ti});$('em').textContent=''}
  catch(e){console.error(e);em.textContent='Could not end the game. Check your connection and try again.'}}

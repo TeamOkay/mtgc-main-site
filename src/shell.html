@@ -168,7 +168,7 @@ button.game:hover{border-color:var(--mute)}
     return new Date(ms || 0).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
   }
 
-  var data = { state: "loading", me: null, games: [], hides: {} };
+  var data = { state: "loading", me: null, games: [], hides: {}, mine: {} };
   var db = null, cur = null, frames = {};
 
   /* ---------- passwords: salted SHA-256, checked in the page ---------- */
@@ -352,15 +352,32 @@ button.game:hover{border-color:var(--mute)}
     }).join("") + "</div>";
   }
 
+  /* An ended game also counts as mine if I have a player or member record in it, even when the stored participant list missed me. */
+  function checkMine(g) {
+    if (!db || !data.me || data.mine[g.id] !== undefined) return;
+    data.mine[g.id] = false;
+    Promise.all([db.doc("games/" + g.id + "/members/" + data.me).get(), db.doc("games/" + g.id + "/players/" + data.me).get()])
+      .then(function (r) { if (r[0].exists || r[1].exists) { data.mine[g.id] = true; renderPast(); } })
+      .catch(function () { delete data.mine[g.id]; });
+  }
+
+  function whoAmI() {
+    var i = window.TGAuth && TGAuth.info();
+    return i ? '<p class="note">You are signed in as ' + (i.guest ? 'a guest on this browser' : esc(i.name || 'an account')) + '. Games are listed under the identity you played with.</p>' : '';
+  }
+
   function renderPast() {
     var el = $("pastlist");
     if (data.state === "loading") { el.innerHTML = '<p class="note">Loading games…</p>'; return; }
     if (data.state === "out") { signedOut(el); return; }
     var list = data.games.filter(function (g) {
-      return g.status === "ended" && typeOf(g.type) && (g.participants || []).indexOf(data.me) >= 0 && !data.hides[g.id + "__" + data.me];
+      if (!(g.status === "ended" && typeOf(g.type)) || data.hides[g.id + "__" + data.me]) return false;
+      if ((g.participants || []).indexOf(data.me) >= 0) return true;
+      checkMine(g);
+      return data.mine[g.id] === true;
     }).sort(function (a, b) { return (b.endedAt || 0) - (a.endedAt || 0); });
     if (!list.length) {
-      el.innerHTML = '<p class="note" style="margin-top:0">No finished games yet. When a host ends a game it shows up here for everyone who joined a team.</p>';
+      el.innerHTML = '<p class="note" style="margin-top:0">No finished games yet. When a host ends a game it shows up here for everyone who joined it.</p>' + whoAmI();
       return;
     }
     el.innerHTML = '<div class="stack">' + list.map(function (g) {
