@@ -787,7 +787,7 @@ $('eg').onclick=async()=>{
   const rows=teamList().map(t=>({id:t.id,name:t.name,color:t.color,regions:cnt[t.id]||0,area:Math.round(ar[t.id]||0)})).sort((a,b)=>b.regions-a.regions||b.area-a.area);
   const top=rows[0],tie=rows.length>1&&rows[1].regions===top.regions&&rows[1].area===top.area;
   const sum=!top?'No teams':tie?'Draw at '+top.regions+' regions':top.name+' won with '+top.regions+' region'+(top.regions===1?'':'s');
-  const ps=[...new Set(Object.entries(S.players).filter(([u,p])=>p&&p.team).map(([u])=>u).concat([S.game.createdBy,S.me].filter(Boolean)))];
+  const ps=[...new Set(Object.entries(S.players).filter(([u,p])=>p&&p.team).map(([u])=>u).concat([...S.members],[S.game.createdBy,S.me].filter(Boolean)))];
   try{await S.raw.doc('games/'+S.gid).update({status:'ended',endedAt:Date.now(),endedBy:S.me,participants:ps,summary:sum,result:{winner:tie||!top?'draw':top.id,teams:rows}});em.textContent=''}
   catch(e){console.error(e);em.textContent='Could not end the game. Check your connection and try again.'}
 };
