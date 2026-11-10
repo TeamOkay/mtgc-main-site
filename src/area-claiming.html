@@ -288,13 +288,85 @@ function parseKML(txt){
   });
   return [...map.values()];
 }
+/* ---------- map size limit + safe simplification ---------- */
+const MAP_LIMIT=900000; /* JSON characters; Firestore stores this in well under its 1 MiB document cap */
+const adjKey=a=>Object.keys(a).sort().map(k=>k+':'+[...a[k]].sort().join(',')).join('|');
+/* Decide which outline points must survive simplification so neighbours stay neighbours:
+   - for regions that border each other: K evenly spread "witness" points along the contact (and the nearest point on the other side)
+   - for regions that do NOT border but come within 60 m: every point close to the other region (so a thin gap can't close up) */
+function planLocks(base,adj,K){
+  const kx=111320*Math.cos(base[0].c[1]*Math.PI/180),ky=110540,CS=64,rings=[],lock=base.map(()=>[]);
+  base.forEach((r,ri)=>{let gi=0;r.polys.forEach(p=>[p.o,...p.h].forEach(g=>{rings.push({ri,gi,m:g.map(q=>[q[0]*kx,q[1]*ky])});lock[ri][gi++]=new Uint8Array(g.length)}))});
+  const grid=new Map(),put=(c,k,i)=>{const a=grid.get(c);a?a.push(k,i):grid.set(c,[k,i])};
+  rings.forEach((R,k)=>{for(let i=0;i<R.m.length-1;i++){const a=R.m[i],b=R.m[i+1];
+    const x0=Math.floor(Math.min(a[0],b[0])/CS),x1=Math.floor(Math.max(a[0],b[0])/CS),y0=Math.floor(Math.min(a[1],b[1])/CS),y1=Math.floor(Math.max(a[1],b[1])/CS);
+    for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++)put(x+','+y,k,i)}});
+  const pairs=new Map();
+  rings.forEach((R,k)=>R.m.forEach((q,i)=>{
+    const cx=Math.floor(q[0]/CS),cy=Math.floor(q[1]/CS),seen=new Set();
+    for(let x=cx-1;x<=cx+1;x++)for(let y=cy-1;y<=cy+1;y++){const l=grid.get(x+','+y);if(!l)continue;
+      for(let t=0;t<l.length;t+=2){const k2=l[t],i2=l[t+1],R2=rings[k2];if(R2.ri===R.ri)continue;const id=k2*1e7+i2;if(seen.has(id))continue;seen.add(id);
+        const a=R2.m[i2],b=R2.m[i2+1],d=dseg(q[0],q[1],a[0],a[1],b[0],b[1]);if(d>3600)continue;
+        const pk=R.ri+'>'+R2.ri;let P=pairs.get(pk);if(!P){P={a:R.ri,b:R2.ri,n20:new Map(),n60:new Set()};pairs.set(pk,P)}
+        P.n60.add(k+':'+i);
+        if(d<=400){const da=(q[0]-a[0])**2+(q[1]-a[1])**2,db=(q[0]-b[0])**2+(q[1]-b[1])**2,key=k+':'+i,o=P.n20.get(key);
+          if(!o||d<o.d)P.n20.set(key,{k,i,d,k2,j:da<=db?i2:i2+1})}}}}));
+  pairs.forEach(P=>{
+    if(adj[base[P.a].id].has(base[P.b].id)){
+      const l=[...P.n20.values()].sort((u,v)=>u.k-v.k||u.i-v.i);if(!l.length)return;
+      const pick=l.length<=K?l:Array.from({length:K},(_,t)=>l[Math.round(t*(l.length-1)/(K-1))]);
+      pick.forEach(w=>{lock[P.a][rings[w.k].gi][w.i]=1;lock[P.b][rings[w.k2].gi][w.j]=1})}
+    else P.n60.forEach(s=>{const [k,i]=s.split(':').map(Number);lock[P.a][rings[k].gi][i]=1})});
+  return lock;
+}
+function dpRing(ring,eps,lock,kx,ky){
+  const n=ring.length,keep=new Uint8Array(n),pts=ring.map(q=>[q[0]*kx,q[1]*ky]);
+  keep[0]=keep[n-1]=1;for(let i=0;i<n;i++)if(lock[i])keep[i]=1;
+  const st=[[0,n-1]];
+  while(st.length){const [a,b]=st.pop();let md=-1,mi=-1;
+    for(let i=a+1;i<b;i++){const d=Math.sqrt(dseg(pts[i][0],pts[i][1],pts[a][0],pts[a][1],pts[b][0],pts[b][1]));if(d>md){md=d;mi=i}}
+    if(mi<0)continue;
+    if(md>eps||keep[mi]){keep[mi]=1;st.push([a,mi],[mi,b])}}
+  const out=ring.filter((q,i)=>keep[i]);return out.length>=4?out:ring;
+}
+function simplifyRegs(regs,eps,locks,lat){
+  const kx=111320*Math.cos(lat*Math.PI/180),ky=110540;
+  return regs.map((r,ri)=>{let gi=0;
+    return{id:r.id,name:r.name,polys:r.polys.map(p=>{const o=dpRing(p.o,eps,locks[ri][gi++],kx,ky);const h=p.h.map(x=>dpRing(x,eps,locks[ri][gi++],kx,ky));return{o,h}})}})}
+const tick=()=>new Promise(r=>setTimeout(r,30));
+/* returns {regs,eps,maxArea} or {err} - only ever returns a map whose neighbour pairs are identical to the original */
+async function shrinkMap(regs){
+  const base=regs.map(normRegion),adj=computeAdj(base),want=adjKey(adj);
+  let fits=false;
+  for(const K of [6,40]){
+    await tick();const locks=planLocks(base,adj,K);
+    for(const eps of [1,2,4,8,16,32,64]){
+      const out=simplifyRegs(regs,eps,locks,base[0].c[1]);if(JSON.stringify(out).length>MAP_LIMIT)continue;
+      fits=true;await tick();
+      if(adjKey(computeAdj(out.map(normRegion)))!==want)continue;
+      const no=out.map(normRegion);let ma=0;no.forEach((r,i)=>{if(base[i].area>0)ma=Math.max(ma,Math.abs(r.area-base[i].area)/base[i].area)});
+      return{regs:out,eps,maxArea:ma,before:JSON.stringify(regs).length,after:JSON.stringify(out).length};
+    }
+  }
+  return{err:fits?'Simplifying enough to fit would change which regions border each other, so nothing was changed.':'Even the strongest safe simplification could not get this map under the size limit.'};
+}
 $('kml').onchange=async e=>{
-  const f=e.target.files[0];if(!f)return;const regs=parseKML(await f.text());
-  if(!regs.length){$('hostmsg').textContent='No polygons found in that file.';return}
-  const sz=JSON.stringify(regs).length;
-  if(sz>240000){$('hostmsg').textContent='Map is too large ('+Math.round(sz/1000)+' KB, limit ~240 KB). Simplify the KML and retry.';return}
-  await S.db.doc('map/main').set({regions:regs});await clearClaims();
-  $('hostmsg').textContent='Loaded '+regs.length+' regions ('+regs.reduce((a,r)=>a+r.polys.length,0)+' shapes).';
+  const inp=e.target,f=inp.files[0];if(!f)return;
+  try{
+    let regs=parseKML(await f.text());
+    if(!regs.length){$('hostmsg').textContent='No polygons found in that file.';return}
+    let note='';const sz=JSON.stringify(regs).length;
+    if(sz>MAP_LIMIT){
+      const ok=await ask('This map is '+Math.round(sz/1000)+' KB, over the '+Math.round(MAP_LIMIT/1000)+' KB limit.\n\nTo load it, the shapes will be simplified: outlines lose fine detail and region areas change slightly. The app checks that every region keeps exactly the same neighbours as in your file; if it cannot guarantee that, nothing is loaded.\n\nSimplify and load?');
+      if(!ok){$('hostmsg').textContent='Upload cancelled.';return}
+      $('hostmsg').textContent='Simplifying…';await tick();
+      const r=await shrinkMap(regs);
+      if(r.err){$('hostmsg').textContent=r.err+' Try a simpler KML.';return}
+      regs=r.regs;note=' Simplified from '+Math.round(r.before/1000)+' KB to '+Math.round(r.after/1000)+' KB (tolerance '+r.eps+' m, neighbours unchanged, largest area change '+(r.maxArea*100).toFixed(2)+'%).';
+    }
+    await S.db.doc('map/main').set({regions:regs});await clearClaims();
+    $('hostmsg').textContent='Loaded '+regs.length+' regions ('+regs.reduce((a,r)=>a+r.polys.length,0)+' shapes).'+note;
+  }finally{inp.value=''}
 };
 async function setLock(rid,locked){
   const c=S.claims[rid],r=S.regions.find(x=>x.id===rid);if(!c)return;
