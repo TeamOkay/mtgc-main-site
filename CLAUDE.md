@@ -19,3 +19,4 @@ Companion site for city-scale transit games (Rail Rush, Area Claiming, Ticket to
 - Once a Rail Rush game has started, teams are locked (`teamsLocked()`): no joining or switching, except for players whose team the host removed. The game doc gets `startedAt`, and the shell refuses late non-member joiners unless spectators are allowed. Tests: `test/t_lock.py`.
 - Do not use `alert/confirm/prompt`; use in-page dialogs.
 - Deploy: commit and push to GitHub; Vercel builds automatically (`vercel.json`).
+- Inactivity: `platform.js` stamps `games/{gid}.lastActive` on any write inside a game (throttled to 5 min). `shell.html` ends games idle for 7 days (run by whoever has the site open; `endIdle`) and lets members reset the clock after 1 day (`resetIdle`, banner + Ongoing list). Games without a stamp get a fresh 7 days. Tests: `test/t_idle.py`, `node test/t_touch.js`.

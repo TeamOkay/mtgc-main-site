@@ -81,6 +81,9 @@ button.game:hover{border-color:var(--mute)}
 .row .btn{width:auto;padding:10px 18px;font-size:1rem}
 
 #stage{flex:1;min-height:0;position:relative}
+.idlebar{flex:none;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:8px 16px;background:var(--panel);border-bottom:2px solid var(--amber);font-size:14px}
+.idlebar span{flex:1;min-width:200px}
+.tag.idle{border-color:var(--amber)}
 .acctbtn{margin-left:auto;flex:none;max-width:40vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:7px 12px;border-radius:18px;border:1px solid var(--line);background:transparent;color:inherit;font:600 13px/1 system-ui,sans-serif;cursor:pointer}
 .acctbtn:not([hidden])+.themebtn{margin-left:0}
 .themebtn{margin-left:auto;flex:none;width:36px;height:36px;border-radius:50%;border:1px solid var(--line,currentColor);background:transparent;color:inherit;font-size:18px;line-height:1;cursor:pointer}
@@ -126,6 +129,7 @@ button.game:hover{border-color:var(--mute)}
   </section>
 </main>
 
+<div class="idlebar" id="idlebar" hidden></div>
 <div id="stage" hidden></div>
 <div class="ov" id="ov" hidden></div>
 
@@ -168,7 +172,8 @@ button.game:hover{border-color:var(--mute)}
     return new Date(ms || 0).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
   }
 
-  var data = { state: "loading", me: null, games: [], hides: {}, mine: {} };
+  var data = { state: "loading", me: null, games: [], hides: {}, mine: {}, mem: {}, busy: {} };
+  var DAY = 864e5, IDLE_RESET = DAY, IDLE_END = 7 * DAY;
   var db = null, cur = null, frames = {};
 
   /* ---------- passwords: salted SHA-256, checked in the page ---------- */
@@ -321,6 +326,8 @@ button.game:hover{border-color:var(--mute)}
     $("stage").hidden = v !== "game";
     $("back").hidden = v === "home";
     $("crumb").textContent = v === "game" && cur ? cur.name : "";
+    shownView = v;
+    renderIdle();
     if (v !== "game") $("views").scrollTop = 0;
   }
 
@@ -342,14 +349,108 @@ button.game:hover{border-color:var(--mute)}
       .sort(function (a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
     if (!list.length) { el.innerHTML = '<p class="note" style="margin-top:0">No games are running. Start one from the home screen.</p>'; return; }
     el.innerHTML = '<div class="stack">' + list.map(function (g) {
-      var t = typeOf(g.type), mine = g.createdBy === data.me;
+      var t = typeOf(g.type), mine = g.createdBy === data.me, idle = idleOf(g), warn = idle >= IDLE_RESET;
+      if (warn) memberOf(g);
       return '<div class="entry">' + bullet(t) +
         "<div><strong>" + esc(g.name || t.name) + '</strong><span class="sub">' + esc(t.name) + (g.city ? " · " + esc(CITY[g.city] || g.city) : "") +
         (g.hostName ? " · hosted by " + esc(g.hostName) : "") + "</span>" +
         '<div class="tags">' + (mine ? '<span class="tag you">You are hosting</span>' : "") +
-        (g.passHash ? '<span class="tag">Locked</span>' : "") + (g.spectators ? '<span class="tag">Spectators welcome</span>' : "") + "</div></div>" +
-        '<button class="small go" type="button" data-e="' + esc(g.id) + '">' + (mine ? "Resume" : g.spectators ? "Watch or join" : "Join") + "</button></div>";
+        (g.passHash ? '<span class="tag">Locked</span>' : "") + (g.spectators ? '<span class="tag">Spectators welcome</span>' : "") +
+        (warn ? '<span class="tag idle">' + esc(idleText(g)) + "</span>" : "") + "</div></div>" +
+        '<div class="actions">' + (warn && isMine(g) ? '<button class="small" type="button" data-r="' + esc(g.id) + '">Still playing</button>' : "") +
+        '<button class="small go" type="button" data-e="' + esc(g.id) + '">' + (mine ? "Resume" : g.spectators ? "Watch or join" : "Join") + "</button></div></div>";
     }).join("") + "</div>";
+  }
+
+  /* ---------- inactivity: games end after 7 idle days; members can reset the clock after 1 ---------- */
+  var shownView = "home";
+  function lastOf(g) { return g.lastActive || g.createdAt || 0; }
+  function idleOf(g) { return Math.max(0, Date.now() - lastOf(g)); }
+  /* up = round up (time left, so "5 days" never shows as 4 just after a reset); otherwise round down (time idle) */
+  function span(ms, up) {
+    var r = up ? Math.ceil : Math.floor, d = r(ms / DAY), h = r(ms / 36e5);
+    return d >= 1 ? d + (d === 1 ? " day" : " days") : Math.max(1, h) + (h <= 1 ? " hour" : " hours");
+  }
+  function left(g) { return span(Math.max(0, IDLE_END - idleOf(g)), true); }
+  function idleText(g) { return "Idle " + span(idleOf(g)) + " · ends in " + left(g); }
+  function isMine(g) { return g.createdBy === data.me || (data.mem[g.id] && data.mem[g.id].v === true); }
+  /* Is this person part of the game (host, or has a player or member record)? Positive answers are kept; negatives are rechecked now and then. */
+  function memberOf(g) {
+    if (!db || !data.me || g.createdBy === data.me) return;
+    var c = data.mem[g.id], now = Date.now();
+    if (c && (c.v || c.busy || now - c.t < 30000)) return;
+    data.mem[g.id] = { v: c ? c.v : false, t: now, busy: true };
+    Promise.all([db.doc("games/" + g.id + "/members/" + data.me).get(), db.doc("games/" + g.id + "/players/" + data.me).get()])
+      .then(function (r) {
+        var v = !!(r[0].exists || r[1].exists), was = c && c.v;
+        data.mem[g.id] = { v: v, t: Date.now() };
+        if (v && !was) { renderOngoing(); renderIdle(); }
+      }).catch(function () { data.mem[g.id] = { v: false, t: Date.now() }; });
+  }
+  async function resetIdle(gid) {
+    if (!db) return false;
+    var ref = db.doc("games/" + gid), ok = false;
+    try {
+      await db.runTransaction(async function (tx) {
+        var d = await tx.get(ref);
+        if (!d.exists || d.data().status !== "active") return;
+        tx.update(ref, { lastActive: Date.now() }); ok = true;
+      });
+    } catch (e) { console.error(e); }
+    if (!ok) await notice("Could not reset", "The game may already have ended, or the connection failed. Try again.");
+    return ok;
+  }
+  /* Ends a game that has been idle for 7 days, whoever happens to have the site open. The transaction re-checks, so a reset at the same moment wins. */
+  async function endIdle(g) {
+    if (data.busy[g.id]) return;
+    data.busy[g.id] = 1;
+    try {
+      var ps = {};
+      if (g.createdBy) ps[g.createdBy] = 1;
+      var r = await Promise.all([db.collection("games/" + g.id + "/players").get(), db.collection("games/" + g.id + "/members").get()]);
+      r.forEach(function (q) { q.docs.forEach(function (x) { ps[x.id] = 1; }); });
+      var ref = db.doc("games/" + g.id);
+      await db.runTransaction(async function (tx) {
+        var d = await tx.get(ref);
+        if (!d.exists) return;
+        var x = d.data();
+        if (x.status !== "active" || !x.lastActive || Date.now() - x.lastActive < IDLE_END) return;
+        tx.update(ref, { status: "ended", endedAt: Date.now(), endedBy: "inactivity", endReason: "inactive", participants: Object.keys(ps),
+          summary: "Ended automatically after 7 days of inactivity", result: {}, teamInfo: {} });
+      });
+    } catch (e) { console.error(e); }
+    delete data.busy[g.id];
+  }
+  /* Games saved before this feature have no activity stamp: give them a fresh 7 days instead of ending them. */
+  async function stampLegacy(g) {
+    if (data.busy[g.id]) return;
+    data.busy[g.id] = 1;
+    try {
+      var ref = db.doc("games/" + g.id);
+      await db.runTransaction(async function (tx) {
+        var d = await tx.get(ref);
+        if (d.exists && d.data().status === "active" && !d.data().lastActive) tx.update(ref, { lastActive: Date.now() });
+      });
+    } catch (e) { console.error(e); }
+    delete data.busy[g.id];
+  }
+  function sweepIdle() {
+    if (!db || data.state !== "in") return;
+    data.games.forEach(function (g) {
+      if (g.status !== "active" || !typeOf(g.type)) return;
+      if (!g.lastActive) stampLegacy(g);
+      else if (idleOf(g) >= IDLE_END) endIdle(g);
+    });
+  }
+  function renderIdle() {
+    var el = $("idlebar"), g = shownView === "game" && cur ? gameById(cur.id) : null;
+    if (!g || g.status !== "active" || idleOf(g) < IDLE_RESET) { el.hidden = true; el.innerHTML = ""; return; }
+    memberOf(g);
+    if (!isMine(g)) { el.hidden = true; el.innerHTML = ""; return; }
+    el.hidden = false;
+    el.innerHTML = "<span>Nothing has happened in this game for " + esc(span(idleOf(g))) + ". It ends automatically in " + esc(left(g)) +
+      " unless someone plays or resets the timer.</span>" + '<button class="small" type="button" id="idle-reset">Still playing</button>';
+    $("idle-reset").onclick = function () { resetIdle(g.id).then(renderIdle); };
   }
 
   /* An ended game also counts as mine if I have a player or member record in it, even when the stored participant list missed me. */
@@ -457,7 +558,7 @@ button.game:hover{border-color:var(--mute)}
     var secret = await makeSecret(v.pass);
     var g = Object.assign({
       type: t.id, name: v.gname || when(Date.now()), createdBy: data.me, hostName: v.name,
-      createdAt: Date.now(), status: "active", spectators: false
+      createdAt: Date.now(), lastActive: Date.now(), status: "active", spectators: false
     }, secret);
     if (v.city) g.city = v.city;
     lsSet("tg.name", v.name);
@@ -524,8 +625,9 @@ button.game:hover{border-color:var(--mute)}
       renderOngoing(); renderPast();
       db.collection("games").onSnapshot(function (q) {
         data.games = q.docs.map(function (x) { return Object.assign({ id: x.id }, x.data()); });
-        renderOngoing(); renderPast();
+        renderOngoing(); renderPast(); renderIdle(); sweepIdle();
       }, function (e) { console.error(e); });
+      setInterval(function () { renderOngoing(); renderIdle(); sweepIdle(); }, 60000);
       db.collection("hides").onSnapshot(function (q) {
         var h = {}; q.docs.forEach(function (x) { h[x.id] = 1; });
         data.hides = h; renderPast();
@@ -542,7 +644,11 @@ button.game:hover{border-color:var(--mute)}
   $("brand").onclick = function () { show("home"); };
   $("back").onclick = function () { show("home"); };
   $("typelist").onclick = function (e) { var b = e.target.closest("[data-t]"); if (b) startGame(b.dataset.t); };
-  $("ongoinglist").onclick = function (e) { var b = e.target.closest("[data-e]"); if (b) enterGame(b.dataset.e); };
+  $("ongoinglist").onclick = function (e) {
+    var r = e.target.closest("[data-r]"), b = e.target.closest("[data-e]");
+    if (r) resetIdle(r.dataset.r).then(renderOngoing);
+    else if (b) enterGame(b.dataset.e);
+  };
   $("pastlist").onclick = function (e) {
     var o = e.target.closest("[data-o]"), h = e.target.closest("[data-h]");
     if (o) enterGame(o.dataset.o);

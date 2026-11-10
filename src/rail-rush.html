@@ -416,7 +416,7 @@ async function endGame(){if(!S.host||!S.db||!S.gid||RO())return;const em=$('em')
 $('eg').onclick=endGame;
 function renderRO(){const g=cur(),b=$('rob');if(!g||g.status!=='ended'){b.classList.add('hide');b.innerHTML='';return}
  const ps=g.participants||[],ti=g.teamInfo||{},r=g.result||{};if(!S.pov||!ps.includes(S.pov))S.pov=ps.includes(S.me)?S.me:(ps[0]||null);
- const w=r.winner&&r.winner!=='draw'?((ti[r.winner]&&ti[r.winner].name)||DEF[r.winner].name)+' won':'Draw';
+ const w=g.endReason==='inactive'?'ended after 7 days of inactivity':r.winner&&r.winner!=='draw'?((ti[r.winner]&&ti[r.winner].name)||DEF[r.winner].name)+' won':'Draw';
  b.classList.remove('hide');
  b.innerHTML='<b>\u{1F3C1} Game ended</b> &middot; '+esc(w)+' <span class="mu">&mdash; read-only</span><div class="row" style="margin-top:6px"><span class="mu">View as</span><select id="pv" style="flex:1;width:auto">'+ps.map(u=>{const p=S.players[u]||{};return '<option value="'+esc(u)+'"'+(u===S.pov?' selected':'')+'>'+esc((p.name||(u===g.createdBy?'Host':'Player'))+(p.team?' ('+TC(p.team).name+')':'')+(u===S.me?' — you':''))+'</option>'}).join('')+'</select></div>';
  $('pv').onchange=()=>{S.pov=$('pv').value;renderPop();renderTeams();renderChal();renderLog();renderRO()}}
