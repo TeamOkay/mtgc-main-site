@@ -19,7 +19,7 @@ button.dg{color:#c0392b}button:disabled{opacity:.5}
 </style></head><body>
 <header><h1>Ticket to Ride</h1><span class="chip" id="city"></span><span class="chip hide" id="hostTag">You are the host</span></header>
 <main>
- <div class="card ban hide" id="ended"><h3>Game ended</h3><div class="mu">This game has been ended by the host.</div></div>
+ <div class="card ban hide" id="ended"><h3>Game ended</h3><div class="mu" id="endedwhy">This game has been ended by the host.</div></div>
  <div class="card"><h3 id="gname">Ticket to Ride</h3><div class="mu" id="who"></div>
   <p class="mu" style="margin:10px 0 0">The game board is not built yet. Nothing to play here for now.</p></div>
  <div id="hostbox" class="hide">
@@ -45,7 +45,7 @@ function askC(title,text,ok){return new Promise(res=>{const o=document.createEle
 function render(){const g=S.game;if(!g)return;
  $('gname').textContent=g.name||'Ticket to Ride';$('city').textContent=CITY[g.city]||g.city||'';
  $('who').textContent=g.hostName?'Hosted by '+g.hostName:'';
- $('hostTag').classList.toggle('hide',!S.host);$('ended').classList.toggle('hide',!RO());
+ $('hostTag').classList.toggle('hide',!S.host);$('ended').classList.toggle('hide',!RO());$('endedwhy').textContent=S.game&&S.game.endReason==='inactive'?'This game ended automatically after 7 days of inactivity.':'This game has been ended by the host.';
  $('hostbox').classList.toggle('hide',!S.host||RO());
  $('acc-spec').checked=!!g.spectators;
  $('acc-st').textContent=g.spectators?'Spectators can watch without the password.':'Everyone needs the password to open this game.'}

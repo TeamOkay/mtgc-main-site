@@ -7,11 +7,25 @@
 window.TGPatchFirestore = function (fb) {
   var clone = function (v) { return v === undefined ? v : JSON.parse(JSON.stringify(v)); };
   var DR = fb.firestore.DocumentReference.prototype, CR = fb.firestore.CollectionReference.prototype;
-  var set = DR.set, upd = DR.update, add = CR.add;
-  DR.set = function (d, o) { return o === undefined ? set.call(this, clone(d)) : set.call(this, clone(d), o); };
-  CR.add = function (d) { return add.call(this, clone(d)); };
+  var set = DR.set, upd = DR.update, add = CR.add, del = DR.delete;
+  /* Activity stamp: any write inside a game (games/{id}/..., or the game document itself) records games/{id}.lastActive,
+     at most once every 5 minutes per game per page. The shell ends games that stay idle for 7 days. */
+  var touched = {}, TOUCH_MS = 300000;
+  function touch(ref, data) {
+    try {
+      var m = /^games\/([^\/]+)(\/|$)/.exec(ref.path || ""); if (!m) return;
+      if (data && (data.lastActive !== undefined || data.status === "ended")) return;
+      var gid = m[1], now = Date.now(); if (touched[gid] && now - touched[gid] < TOUCH_MS) return;
+      touched[gid] = now;
+      upd.call(ref.firestore.doc("games/" + gid), { lastActive: now }).catch(function () { delete touched[gid]; });
+    } catch (e) {}
+  }
+  DR.set = function (d, o) { touch(this, d); return o === undefined ? set.call(this, clone(d)) : set.call(this, clone(d), o); };
+  CR.add = function (d) { touch(this, d); return add.call(this, clone(d)); };
+  DR.delete = function () { touch(this); return del.apply(this, arguments); };
   DR.update = function () {
     var self = this, args = Array.prototype.slice.call(arguments);
+    touch(this, args[0]);
     if (args.length === 1) args[0] = clone(args[0]);
     return upd.apply(this, args).catch(function (e) {
       if (e && e.code === "not-found" && args.length === 1) return set.call(self, args[0], { merge: true });

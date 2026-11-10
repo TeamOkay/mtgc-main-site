@@ -20,7 +20,8 @@ MOCK = r"""
     update:async v=>{await rpc({op:'update',k,v,me})},
     delete:async()=>{await rpc({op:'del',k,me})},
     onSnapshot(cb,eb){const s=async()=>{try{cb(mkdoc(k,await rpc({op:'get',k})))}catch(e){eb&&eb(e)}};subs.add(s);s();return()=>subs.delete(s)}}),
-  collection:p=>Object.assign(mkq(p,[]),{doc:k=>db.doc(p+'/'+k)})};
+  collection:p=>Object.assign(mkq(p,[]),{doc:k=>db.doc(p+'/'+k)}),
+  runTransaction:async fn=>{const ws=[];const tx={get:r=>r.get(),update:(r,v)=>ws.push(['u',r,v]),set:(r,v)=>ws.push(['s',r,v])};const out=await fn(tx);for(const [t,r,v] of ws){t==='u'?await r.update(v):await r.set(v)}return out}};
  window.__notify=()=>subs.forEach(s=>s());
  window.claude={use:async n=>n==='db'?db:n==='user'?{id:async()=>me,me:async()=>({id:me}),isOwner:()=>false,canEdit:()=>true,can:()=>true,profiles:async()=>({})}:null};
 })();

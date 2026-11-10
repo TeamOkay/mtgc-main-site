@@ -245,7 +245,7 @@ function renderDeck(){
   $('decklist').querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>{const c=S.deck.find(x=>x.id===b.dataset.e);S.edit=c.id;$('nt').value=c.title;$('nd').value=c.description;$('nr').value=c.reward;$('addc').textContent='Save';$('editing').textContent='Editing…';scrollTo(0,0)});
   $('decklist').querySelectorAll('[data-x]').forEach(b=>b.onclick=async()=>{if(await ask('Delete this challenge?'))S.db.doc('deck/'+b.dataset.x).delete()});
 }
-function renderAll(){$('alerts2').innerHTML=RO()?'<div class="card alert"><b>This game has ended.</b> It is read-only.</div>':'';renderTeams();renderHostTeams();renderHead();renderHand();renderDone();renderAllCh();renderDeck();renderBattleCat();renderPower();renderTradePop();renderUndo()}
+function renderAll(){$('alerts2').innerHTML=RO()?'<div class="card alert"><b>This game has ended'+(S.game.endReason==='inactive'?' after 7 days of inactivity':'')+'.</b> It is read-only.</div>':'';renderTeams();renderHostTeams();renderHead();renderHand();renderDone();renderAllCh();renderDeck();renderBattleCat();renderPower();renderTradePop();renderUndo()}
 
 /* ---------- host: deck / battles / settings ---------- */
 $('addc').onclick=async()=>{
