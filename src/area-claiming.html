@@ -174,8 +174,13 @@ async function init(){
   db.collection('hands').onSnapshot(q=>{
     S.hands={};q.docs.forEach(d=>S.hands[d.id]=JSON.parse(JSON.stringify(d.data())));
     if(syncPriv())renderAll();else renderPower();renderLb();renderTeams()},err);
-  db.doc('map/main').onSnapshot(d=>{S.regions=(d.exists?(d.data().regions||[]):[]).map(normRegion);S.adj=computeAdj(S.regions);buildMap();renderBattles();renderHostRegions();renderPower()},err);
+  db.doc('map/main').onSnapshot(d=>{S.regions=(d.exists?(d.data().regions||[]):[]).map(decRegion).map(normRegion);S.adj=computeAdj(S.regions);buildMap();renderBattles();renderHostRegions();renderPower()},err);
 }
+/* Firestore cannot store arrays inside arrays, so rings are saved as flat number lists [lon,lat,lon,lat,...] and holes as {p:[...]}. */
+const flat=g=>{const o=new Array(g.length*2);g.forEach((q,i)=>{o[2*i]=q[0];o[2*i+1]=q[1]});return o};
+const unflat=a=>{if(!a.length||Array.isArray(a[0]))return a;const o=[];for(let i=0;i<a.length;i+=2)o.push([a[i],a[i+1]]);return o};
+const encRegions=regs=>regs.map(r=>({id:r.id,name:r.name,polys:r.polys.map(p=>({o:flat(p.o),h:p.h.map(x=>({p:flat(x)}))}))}));
+const decRegion=r=>r.polys?{...r,polys:r.polys.map(p=>({o:unflat(p.o),h:(p.h||[]).map(x=>unflat(x.p||x))}))}:r;
 function normRegion(r0){
   const r={...r0};
   if(!r.polys)r.polys=r.rings?r.rings.map(o=>({o,h:[]})):[{o:r.ring,h:[]}];
@@ -364,9 +369,10 @@ $('kml').onchange=async e=>{
       if(r.err){$('hostmsg').textContent=r.err+' Try a simpler KML.';return}
       regs=r.regs;note=' Simplified from '+Math.round(r.before/1000)+' KB to '+Math.round(r.after/1000)+' KB (tolerance '+r.eps+' m, neighbours unchanged, largest area change '+(r.maxArea*100).toFixed(2)+'%).';
     }
-    await S.db.doc('map/main').set({regions:regs});await clearClaims();
+    await S.db.doc('map/main').set({regions:encRegions(regs)});await clearClaims();
     $('hostmsg').textContent='Loaded '+regs.length+' regions ('+regs.reduce((a,r)=>a+r.polys.length,0)+' shapes).'+note;
-  }finally{inp.value=''}
+  }catch(err){console.error(err);$('hostmsg').textContent='Could not load the map: '+((err&&err.message)||err)}
+  finally{inp.value=''}
 };
 async function setLock(rid,locked){
   const c=S.claims[rid],r=S.regions.find(x=>x.id===rid);if(!c)return;
