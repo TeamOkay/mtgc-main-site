@@ -6,7 +6,7 @@ MOCK = r"""
 (function(){
  const me=new URLSearchParams(location.search).get('u')||'u1';
  const subs=new Set();
- const rpc=async(o)=>JSON.parse(await window.__rpc(JSON.stringify(o)));
+ const rpc=async(o)=>{const r=JSON.parse(await window.__rpc(JSON.stringify(o)));if(r&&r.__err)throw new Error(r.__err);return r};
  const mkdoc=(k,r)=>({id:k.split('/').pop(),exists:!!r,data:()=>r?JSON.parse(JSON.stringify(r)):undefined,ref:null});
  const mkq=(p,f)=>({
    get:async()=>{const r=await rpc({op:'list',p,f});const ds=r.map(x=>mkdoc(x.k,x.v));return{docs:ds,size:ds.length,empty:!ds.length,forEach:c=>ds.forEach(c)}},
@@ -39,6 +39,12 @@ class World:
         return True
     def _rpc(self, s):
         o = json.loads(s); op = o['op']; D = self.docs; changed = False
+        if op in ('set', 'update'):   # real Firestore refuses arrays inside arrays; the mock must too
+            def nested(v, in_arr=False):
+                if isinstance(v, list): return in_arr or any(nested(x, True) for x in v)
+                if isinstance(v, dict): return any(nested(x, False) for x in v.values())
+                return False
+            if nested(o.get('v')): return json.dumps({'__err': 'Nested arrays are not supported (found in document %s)' % o['k']})
         if op == 'get': r = copy.deepcopy(D.get(o['k']))
         elif op == 'list':
             pre = o['p'] + '/'
