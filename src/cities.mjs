@@ -2,7 +2,7 @@
 // Each city comes in two variants:
 //   <City>-Augmented  every line of the original city (Boston, Montréal: Red, Green, Silver and the REM merged into branching lines)
 //   <City>-Base       only the main rail lines
-// Output format = the Map Editor's import format: { name, regions, lines[{ id, name, color, rail, order, branches?: [{ name, order }] }] }.
+// Output format = the Map Editor's import format: { name, regions, lines[{ id, name, color, rail, order, branches?: [{ name, group?, order }] (pieces with the same group are one branch) }] }.
 // A branch's first station is the station where it leaves the line's trunk.
 
 const RAIL = /^(\d|A\d?|LSE|LSW|UP|Red[AB]|Orange|Blue|Green[BCDE]|Mattapan)$/;   // how Rail Rush has told rail from bus
@@ -51,10 +51,10 @@ export function cityMaps(NETS) {
   const green = { id: 'Green', name: 'Green Line', color: GB.color, rail: true, order: gtrunk, branches: [
     { name: 'B', order: from(GB.order, 'copley', 'GreenB') },
     { name: 'C', order: from(GC.order, 'copley', 'GreenC') },
-    { name: 'D', order: from(GD.order, 'copley', 'GreenD') },
-    { name: 'D', order: north(GD, 'GreenD') },
-    { name: 'E', order: from(GE.order, 'copley', 'GreenE') },
-    { name: 'E', order: north(GE, 'GreenE') }] };
+    { name: 'D', group: 'D', order: from(GD.order, 'copley', 'GreenD') },
+    { name: 'D', group: 'D', order: north(GD, 'GreenD') },
+    { name: 'E', group: 'E', order: from(GE.order, 'copley', 'GreenE') },
+    { name: 'E', group: 'E', order: north(GE, 'GreenE') }] };
   const S1 = get('boston', 'SL1'), S2 = get('boston', 'SL2'), S3 = get('boston', 'SL3');
   const strunk = upto(S1.order, 'silver-line-way', 'SL1');
   same(upto(S2.order, 'silver-line-way', 'SL2'), strunk, 'SL2'); same(upto(S3.order, 'silver-line-way', 'SL3'), strunk, 'SL3');

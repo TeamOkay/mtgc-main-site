@@ -167,7 +167,7 @@ function fromData(d){
   if(d.center&&isFinite(d.center.lat)&&isFinite(d.center.lon)){s.lat0=+d.center.lat;s.lon0=+d.center.lon}
   var map={},regs=d.regions||[],lines=d.lines||[];
   regs.forEach(function(r){var c=r.c||[];if(!isFinite(c[0])||!isFinite(c[1]))return;var id='s'+s.sq++;map[r.id]=id;s.st.push({id:id,name:String(r.name||r.id),lon:+c[0],lat:+c[1]})});
-  lines.forEach(function(l,i){s.ln.push({id:'l'+s.lq++,name:String(l.name||l.id),color:/^#[0-9a-f]{6}$/i.test(l.color||'')?l.color:PALETTE[i%PALETTE.length],rail:l.rail!==false,order:(l.order||[]).map(function(x){return map[x]}).filter(Boolean)});var nl=s.ln[s.ln.length-1];var brs=(l.branches||[]).map(function(b){return {id:(function(){s.bq=s.bq||1;return 'b'+s.bq++})(),name:String((b&&b.name)||'').slice(0,30),order:((b&&b.order)||[]).map(function(x){return map[x]}).filter(Boolean)}}).filter(function(b){return b.order.length>=2});if(brs.length)nl.branches=brs});
+  lines.forEach(function(l,i){s.ln.push({id:'l'+s.lq++,name:String(l.name||l.id),color:/^#[0-9a-f]{6}$/i.test(l.color||'')?l.color:PALETTE[i%PALETTE.length],rail:l.rail!==false,order:(l.order||[]).map(function(x){return map[x]}).filter(Boolean)});var nl=s.ln[s.ln.length-1];var gmap={};var brs=(l.branches||[]).map(function(b){var gk=b&&b.group!=null&&b.group!==''?String(b.group):null,gid=null;if(gk){gmap[gk]=gmap[gk]||'g'+(s.bq=s.bq||1);gid=gmap[gk]}return {id:(function(){s.bq=s.bq||1;return 'b'+s.bq++})(),grp:gid,name:String((b&&b.name)||'').slice(0,30),order:((b&&b.order)||[]).map(function(x){return map[x]}).filter(Boolean)}}).filter(function(b){return b.order.length>=2});if(brs.length)nl.branches=brs});
   if(!d.center&&s.st.length){var la=0,lo=0;s.st.forEach(function(x){la+=x.lat;lo+=x.lon});s.lat0=la/s.st.length;s.lon0=lo/s.st.length}
   return s}
 function slug(n){var t=String(n).normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');return t||'x'}
@@ -176,13 +176,16 @@ function toData(){
   var used={},sid={};S.st.forEach(function(x){sid[x.id]=uniq(slug(x.name),used)});
   var lu={},lid={};S.ln.forEach(function(l){lid[l.id]=uniq(slug(l.name),lu)});
   var regs=S.st.map(function(x){return {id:sid[x.id],name:x.name,c:[+x.lon.toFixed(5),+x.lat.toFixed(5)],lines:S.ln.filter(function(l){return onLine(l,x.id)}).map(function(l){return lid[l.id]}),pt:1}});
-  var lines=S.ln.map(function(l){var o={id:lid[l.id],name:l.name,color:l.color,order:l.order.map(function(i){return sid[i]}),rail:l.rail};if(l.branches&&l.branches.length)o.branches=l.branches.map(function(b){var ob={};if(b.name)ob.name=b.name;ob.order=b.order.map(function(i){return sid[i]});return ob});return o});
+  var lines=S.ln.map(function(l){var o={id:lid[l.id],name:l.name,color:l.color,order:l.order.map(function(i){return sid[i]}),rail:l.rail};if(l.branches&&l.branches.length)o.branches=l.branches.map(function(b){var ob={};if(b.name)ob.name=b.name;if(grpPieces(l,b).length>1)ob.group=String(grpOf(b));ob.order=b.order.map(function(i){return sid[i]});return ob});return o});
   return {format:'rail-rush-map',version:1,name:S.name,center:{lat:+S.lat0.toFixed(5),lon:+S.lon0.toFixed(5)},regions:regs,lines:lines}}
 function stById(id){for(var i=0;i<S.st.length;i++)if(S.st[i].id===id)return S.st[i];return null}
 function lnById(id){for(var i=0;i<S.ln.length;i++)if(S.ln[i].id===id)return S.ln[i];return null}
 function runs(l){return [l.order].concat((l.branches||[]).map(function(b){return b.order}))}
 function onLine(l,sid){return runs(l).some(function(r){return r.indexOf(sid)>=0})}
 function linesOf(sid){return S.ln.filter(function(l){return onLine(l,sid)})}
+function grpOf(b){return b.grp||b.id}
+function grpPieces(l,b){var g=grpOf(b);return (l.branches||[]).filter(function(x){return grpOf(x)===g})}
+function grpList(l){var seen={},out=[];(l.branches||[]).forEach(function(b){var g=grpOf(b);if(!seen[g]){seen[g]=1;out.push(b)}});return out}
 function newBranchId(){S.bq=S.bq||1;return 'b'+S.bq++}
 function brById(l,id){var bs=l&&l.branches||[];for(var i=0;i<bs.length;i++)if(bs[i].id===id)return bs[i];return null}
 /* the run (trunk or one branch) that Edit line is currently extending */
@@ -398,6 +401,7 @@ function drawBarRender(){
         o+='<button class="btn sm xf'+(!cr.br&&tg.e==='end'?' on':'')+'" data-d="end" title="Clicks add stations after the last one">Extend from '+esc(ls?ls.name:'?')+'</button>';
         (el.branches||[]).forEach(function(b){var bl=stById(b.order[b.order.length-1]);o+='<button class="btn sm xf'+(cr.br===b?' on':'')+'" data-d="br:'+b.id+'" title="Branch: clicks add stations after its last one">Extend from '+esc(bl?bl.name:'?')+' (branch'+(b.name?' '+esc(b.name):'')+')</button>'});
         var ss=selSt&&stById(selSt);if(ss&&el.order.indexOf(selSt)>=0)o+='<button class="btn sm xf" data-d="fork" title="Start a branch of this line at the selected station">Branch from '+esc(ss.name)+'</button>';
+        if(ss&&el.order.indexOf(selSt)>=0)grpList(el).forEach(function(g0){o+='<button class="btn sm xf" data-d="forkto:'+g0.id+'" title="Start another piece of the same branch at the selected station">Another piece of branch '+esc(g0.name||('#'+(grpList(el).indexOf(g0)+1)))+' from '+esc(ss.name)+'</button>'});
         if(cr.br)o+='<button class="btn sm" data-d="delbr" title="Delete the branch being extended">Delete branch</button>';
         return o})()+
       (lnById(selLn)?'<input type="color" id="d-color" value="'+esc(lnById(selLn).color)+'" aria-label="Line colour" title="Line colour">':'')+
@@ -415,6 +419,7 @@ $('drawbar').addEventListener('click',function(e){var b=e.target.closest('[data-
   else if(d==='end'||d==='start'){tg={b:null,e:d}}
   else if(d.slice(0,3)==='br:'){tg={b:d.slice(3),e:'end'}}
   else if(d==='fork'){var fl=lnById(selLn),fs0=selSt;if(fl&&fs0&&fl.order.indexOf(fs0)>=0){mut(function(){var nb={id:newBranchId(),order:[fs0]};(fl.branches=fl.branches||[]).push(nb);tg={b:nb.id,e:'end'}});hint('New branch from '+(stById(fs0)||{}).name+': click stations in order to build it.')}}
+  else if(d.indexOf('forkto:')===0){var tl=lnById(selLn),ts=selSt,tb=tl&&brById(tl,d.slice(7));if(tl&&tb&&ts&&tl.order.indexOf(ts)>=0){mut(function(){var nb={id:newBranchId(),order:[ts],name:tb.name||''};var g0=grpOf(tb);tb.grp=g0;nb.grp=g0;tl.branches.push(nb);tg={b:nb.id,e:'end'}});hint('Another piece of the same branch, from '+(stById(ts)||{}).name+': click stations in order to build it.')}}
   else if(d==='delbr'){var dl=lnById(selLn),db=dl&&brById(dl,tg.b);if(db){mut(function(){dl.branches=dl.branches.filter(function(x){return x!==db});tg={b:null,e:'end'}})}}
   else if(d==='done'){setTool('select');return}
   setTool('line')});
@@ -517,13 +522,13 @@ function renderLines(){
     h+='<div class="card" data-l="'+l.id+'"><div class="row"><input type="color" data-k="color" value="'+esc(l.color)+'" aria-label="Colour"><input class="nameIn" style="flex:1;max-width:none" data-k="name" maxlength="60" aria-label="Line name"></div>'+
       '<div class="row"><label class="row" style="gap:5px"><input type="checkbox" data-k="rail"'+(l.rail?' checked':'')+'> Rail (solid)</label><span class="mu">'+(l.rail?'':'bus (dashed)')+'</span>'+
       '<button class="btn sm'+(tool==='line'&&dm==='extend'&&selLn===l.id?' on':'')+'" data-a="draw" style="margin-left:auto">'+(tool==='line'&&dm==='extend'&&selLn===l.id?'Editing…':'Edit')+'</button><button class="btn sm" data-a="del">Delete</button></div>'+
-      '<div class="mu">'+l.order.length+' station'+(l.order.length===1?'':'s')+((l.branches||[]).length?' + '+l.branches.length+' branch'+(l.branches.length===1?'':'es'):'')+' · <a href="#" data-a="toggle" style="color:var(--accent)">'+(open?'hide':'show')+' order</a></div>'+
-      (open?'<div>'+(l.order.length?l.order.map(function(id,i){var s=stById(id);return '<div class="ord" data-i="'+i+'"><span>'+(i+1)+'. '+esc(s?s.name:'?')+'</span><button class="btn sm" data-a="up" '+(i?'':'disabled')+' aria-label="Move earlier">↑</button><button class="btn sm" data-a="dn" '+(i<l.order.length-1?'':'disabled')+' aria-label="Move later">↓</button><button class="btn sm" data-a="rm" aria-label="Remove from line">✕</button></div>'}).join(''):'<div class="mu">Empty.</div>')+(l.branches||[]).map(function(b){var fk=stById(b.order[0]);return '<div class="row" style="margin-top:6px"><span class="mu">Branch from '+esc(fk?fk.name:'?')+'</span><input class="nameIn" style="flex:1;max-width:none;min-width:90px" data-bname="'+b.id+'" maxlength="30" placeholder="Branch name (optional)" aria-label="Branch name"></div>'+b.order.map(function(id,j){var s=stById(id);return '<div class="ord" data-bid="'+b.id+'" data-j="'+j+'"><span>'+(j?j+'. ':'• ')+esc(s?s.name:'?')+(j?'':' (fork)')+'</span>'+(j?'<button class="btn sm" data-a="brrm" aria-label="Remove from branch">✕</button>':'')+'</div>'}).join('')+'<div><button class="btn sm" data-a="brdel" data-b="'+b.id+'">Delete this branch</button></div>'}).join('')+'</div>':'')+'</div>'});
+      '<div class="mu">'+l.order.length+' station'+(l.order.length===1?'':'s')+(grpList(l).length?' + '+grpList(l).length+' branch'+(grpList(l).length===1?'':'es'):'')+' · <a href="#" data-a="toggle" style="color:var(--accent)">'+(open?'hide':'show')+' order</a></div>'+
+      (open?'<div>'+(l.order.length?l.order.map(function(id,i){var s=stById(id);return '<div class="ord" data-i="'+i+'"><span>'+(i+1)+'. '+esc(s?s.name:'?')+'</span><button class="btn sm" data-a="up" '+(i?'':'disabled')+' aria-label="Move earlier">↑</button><button class="btn sm" data-a="dn" '+(i<l.order.length-1?'':'disabled')+' aria-label="Move later">↓</button><button class="btn sm" data-a="rm" aria-label="Remove from line">✕</button></div>'}).join(''):'<div class="mu">Empty.</div>')+(l.branches||[]).map(function(b){var fk=stById(b.order[0]),pc=grpPieces(l,b),first=pc[0]===b;return '<div class="row" style="margin-top:6px"><span class="mu">'+(first?'Branch':'Piece '+(pc.indexOf(b)+1)+' of the same branch')+' from '+esc(fk?fk.name:'?')+'</span>'+(first?'<input class="nameIn" style="flex:1;max-width:none;min-width:90px" data-bname="'+b.id+'" maxlength="30" placeholder="Branch name (optional)" aria-label="Branch name">':'')+'</div>'+b.order.map(function(id,j){var s=stById(id);return '<div class="ord" data-bid="'+b.id+'" data-j="'+j+'"><span>'+(j?j+'. ':'• ')+esc(s?s.name:'?')+(j?'':' (fork)')+'</span>'+(j?'<button class="btn sm" data-a="brrm" aria-label="Remove from branch">✕</button>':'')+'</div>'}).join('')+'<div><button class="btn sm" data-a="brdel" data-b="'+b.id+'">'+(pc.length>1?'Delete this piece':'Delete this branch')+'</button></div>'}).join('')+'</div>':'')+'</div>'});
   p.innerHTML=h;
   [].forEach.call(p.querySelectorAll('[data-l]'),function(card){
     var l=lnById(card.dataset.l);
     bind(card.querySelector('[data-k=name]'),function(){return l.name},function(v){l.name=v});
-    [].forEach.call(card.querySelectorAll('[data-bname]'),function(inp){var br=brById(l,inp.dataset.bname);if(br)bind(inp,function(){return br.name||''},function(v){br.name=v})});
+    [].forEach.call(card.querySelectorAll('[data-bname]'),function(inp){var br=brById(l,inp.dataset.bname);if(br)bind(inp,function(){return br.name||''},function(v){grpPieces(l,br).forEach(function(x){x.name=v})})});
     var c=card.querySelector('[data-k=color]');c.onfocus=function(){c._pre=snap()};c.oninput=function(){l.color=c.value;save();renderCanvas()};c.onchange=function(){if(c._pre&&c._pre!==snap())push(c._pre);lite()};
     card.querySelector('[data-k=rail]').onchange=function(){var v=this.checked;mut(function(){l.rail=v})};
   });

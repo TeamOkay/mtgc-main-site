@@ -26,6 +26,7 @@ for (const k of [BA, BB]) {
   ok(k + ' Green B to Boston College, C to Cleveland Circle', br('B').length === 1 && ends(k, br('B')[0].order) === 'Copley > Boston College' && br('C').length === 1 && ends(k, br('C')[0].order) === 'Copley > Cleveland Circle');
   ok(k + ' Green D: Copley > Riverside and Government Center > Union Square', br('D').length === 2 && ends(k, br('D')[0].order) === 'Copley > Riverside' && ends(k, br('D')[1].order) === 'Government Center > Union Square');
   ok(k + ' Green E: Copley > Heath Street and Government Center > Medford/Tufts', br('E').length === 2 && ends(k, br('E')[0].order) === 'Copley > Heath Street' && ends(k, br('E')[1].order) === 'Government Center > Medford/Tufts');
+  ok(k + ' D and E pieces are grouped as one branch each', br('D').every(b => b.group === 'D') && br('E').every(b => b.group === 'E') && g.branches.filter(b => b.group).length === 4);
   ok(k + ' every branch starts on its trunk', M[k].lines.every(l => (l.branches || []).every(b => l.order.includes(b.order[0]))));
   ok(k + ' Mattapan kept separate', ends(k, L(k, 'Mattapan').order) === 'Ashmont > Mattapan');
 }

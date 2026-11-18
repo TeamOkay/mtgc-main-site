@@ -140,7 +140,7 @@ button.game:hover{border-color:var(--mute)}
   var HTML = __HTML__;
 
   var TYPES = [
-    { id: "rail-rush", name: "Rail Rush", tag: "Claim stations across a city's transit network.", meta: "Toronto · Montréal · Boston", bullet: "RR", color: "#e4572e" },
+    { id: "rail-rush", name: "Rail Rush", tag: "Claim stations across a city's transit network.", meta: "Built-in or custom maps", bullet: "RR", color: "#e4572e" },
     { id: "area-claiming", name: "Area Claiming", tag: "Complete challenges to claim map regions, then battle to hold them.", meta: "Map and challenges set by the host", bullet: "AC", color: "#12a39a" },
     { id: "ticket-to-ride", name: "Ticket to Ride", tag: "Claim routes and complete tickets across a city's transit network.", meta: "Montréal", bullet: "TR", color: "#7b4fd1", cities: ["montreal"] }
   ];
@@ -205,7 +205,7 @@ button.game:hover{border-color:var(--mute)}
   }
 
   function createDialog(type) {
-    var cities = type.id === "rail-rush" ? ["toronto", "montreal", "boston"] : (type.cities || null), rail = !!cities;
+    var cities = type.id === "rail-rush" ? null : (type.cities || null), rail = !!cities;
     return dialog(
       "<h2>Host " + esc(type.name) + "</h2>" +
       "<p>You will be the host of this game. Other players need the password to join a team.</p>" +
@@ -353,7 +353,7 @@ button.game:hover{border-color:var(--mute)}
       var t = typeOf(g.type), mine = g.createdBy === data.me, idle = idleOf(g), warn = idle >= IDLE_RESET;
       if (warn) memberOf(g);
       return '<div class="entry">' + bullet(t) +
-        "<div><strong>" + esc(g.name || t.name) + '</strong><span class="sub">' + esc(t.name) + (g.city ? " · " + esc(CITY[g.city] || g.city) : "") +
+        "<div><strong>" + esc(g.name || t.name) + '</strong><span class="sub">' + esc(t.name) + (g.mapName || g.city ? " · " + esc(g.mapName || CITY[g.city] || g.city) : "") +
         (g.hostName ? " · hosted by " + esc(g.hostName) : "") + "</span>" +
         '<div class="tags">' + (mine ? '<span class="tag you">You are hosting</span>' : "") +
         (g.passHash ? '<span class="tag">Locked</span>' : "") + (g.spectators ? '<span class="tag">Spectators welcome</span>' : "") +
@@ -485,7 +485,7 @@ button.game:hover{border-color:var(--mute)}
     el.innerHTML = '<div class="stack">' + list.map(function (g) {
       var t = typeOf(g.type);
       return '<div class="entry">' + bullet(t, true) +
-        "<div><strong>" + esc(g.name || t.name) + '</strong><span class="sub">' + esc(t.name) + (g.city ? " · " + esc(CITY[g.city] || g.city) : "") +
+        "<div><strong>" + esc(g.name || t.name) + '</strong><span class="sub">' + esc(t.name) + (g.mapName || g.city ? " · " + esc(g.mapName || CITY[g.city] || g.city) : "") +
         " · ended " + esc(when(g.endedAt)) + " · " + (g.participants || []).length + ' players</span>' +
         (g.summary ? '<span class="res">' + esc(g.summary) + "</span>" : "") + "</div>" +
         '<div class="actions"><button class="small go" type="button" data-o="' + esc(g.id) + '">Open</button>' +

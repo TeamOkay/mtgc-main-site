@@ -4,16 +4,21 @@ import { cityMaps } from './src/cities.mjs';
 const rd = f => fs.readFileSync(f, 'utf8');
 const SHIM = '<script>(function(){var p=window.parent;window.TG_GID="__TGID__";window.claude={use:function(n){try{return p.claude.use(n)}catch(e){return Promise.resolve(null)}}}})();</script>';
 const games = {};
+const rr0 = rd('src/rail-rush.html'), ni = rr0.indexOf('const NETS='), nj = rr0.indexOf('\n', ni);
+if (ni < 0) throw new Error('NETS not found in rail-rush.html');
+const NETS = new Function('return ' + rr0.slice(ni + 'const NETS='.length, nj).replace(/;\s*$/, ''))();
+const built = cityMaps(NETS);
 for (const k of ['rail-rush', 'area-claiming', 'ticket-to-ride']) {
-  const s = rd(`src/${k}.html`), i = s.toLowerCase().indexOf('<head>') + '<head>'.length;
+  let s = rd(`src/${k}.html`);
+  if (k === 'rail-rush') {
+    if (s.split('/*__MAPS__*/{}').length !== 2) throw new Error('rail-rush MAPS placeholder missing');
+    s = s.replace('/*__MAPS__*/{}', () => JSON.stringify(built).replace(/<\//g, '<\\/'));
+  }
+  const i = s.toLowerCase().indexOf('<head>') + '<head>'.length;
   games[k] = s.slice(0, i) + SHIM + s.slice(i);
 }
 /* Map editor: embeds the built-in Rail Rush cities (read from rail-rush.html) so they can be opened and copied there. */
 {
-  const rr = rd('src/rail-rush.html'), i = rr.indexOf('const NETS='), j = rr.indexOf('\n', i);
-  if (i < 0) throw new Error('NETS not found in rail-rush.html');
-  const NETS = new Function('return ' + rr.slice(i + 'const NETS='.length, j).replace(/;\s*$/, ''))();
-  const built = cityMaps(NETS);
   let ed = rd('src/map-editor.html');
   if (ed.split('/*__BUILTINS__*/{}').length !== 2) throw new Error('map-editor placeholder missing');
   const cities = JSON.stringify(built).replace(/<\//g, '<\\/');

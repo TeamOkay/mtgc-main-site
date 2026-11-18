@@ -2,7 +2,7 @@
 from harness import *
 w=World(); c=Check()
 for u in ['u1','u2','u3','u4','u5']: w.user(u)
-gid=host_game(w,'u1','rail-rush','Lock','pw1',host='Hana')
+gid=host_game(w,'u1','rail-rush','Lock','pw1',host='Hana',city='toronto')
 for u in ['u2','u3']:
     join_from_list(w,u,gid,pw='pw1'); w.pump(300)
 fh=w.frame('u1'); f2=w.frame('u2'); f3=w.frame('u3')
