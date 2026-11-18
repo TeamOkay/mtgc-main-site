@@ -7,6 +7,8 @@
 
 const RAIL = /^(\d|A\d?|LSE|LSW|UP|Red[AB]|Orange|Blue|Green[BCDE]|Mattapan)$/;   // how Rail Rush has told rail from bus
 
+import { mtlBuses } from './mtl-buses.mjs';
+
 export function cityMaps(NETS) {
   const out = {};
   const get = (c, id) => { const l = NETS[c].lines.find(x => x.id === id); if (!l) throw new Error(`line ${c}/${id} not found`); return l; };
@@ -16,10 +18,10 @@ export function cityMaps(NETS) {
   const same = (a, b, w) => { if (a.join() !== b.join()) throw new Error('trunk mismatch: ' + w); };
   const plain = (c, id) => { const l = get(c, id); return { id: l.id, name: l.name, color: l.color, rail: RAIL.test(l.id), order: l.order.slice() }; };
 
-  function build(name, city, lines) {
+  function build(name, city, lines, extra = []) {
     const used = new Set();
     lines.forEach(l => { l.order.concat(...(l.branches || []).map(b => b.order)).forEach(i => used.add(i)); });
-    const regions = NETS[city].regions.filter(r => used.has(r.id)).map(r => {
+    const regions = NETS[city].regions.concat(extra).filter(r => used.has(r.id)).map(r => {
       const ls = lines.filter(l => l.order.includes(r.id) || (l.branches || []).some(b => b.order.includes(r.id))).map(l => l.id);
       return Object.assign({}, r, { lines: ls });
     });
@@ -77,11 +79,9 @@ export function cityMaps(NETS) {
   // Augmented-only edits: the 121's Côte-Vertu & Muir stop is the REM's Montpellier station, and three short bus links are added.
   const b121 = ml.find(l => l.id === '121'), mi = at(b121.order, 'cote-vertu-muir', '121');
   b121.order[mi] = 'montpellier';
-  const bus = (id, name, color, order) => { order.forEach(s => { if (!NETS.montreal.regions.some(r => r.id === s)) throw new Error('station ' + s); }); return { id, name, color, rail: false, order }; };
-  ml.push(bus('141', '141 Saint-Michel / Honoré-Beaugrand (bus)', '#7cb342', ['saint-michel', 'honore-beaugrand']));
-  ml.push(bus('12', '12 Île-des-Sœurs / LaSalle (bus)', '#5e35b1', ['ile-des-surs', 'lasalle']));   // LaSalle = Gaétan-Laberge / Gilberte-Dubé
-  ml.push(bus('35', '35 Monk / Place-Saint-Henri (bus)', '#ff7043', ['monk', 'place-saint-henri']));
-  out['montreal-augmented'] = build('Montréal-Augmented', 'montreal', ml);
+  const mb = mtlBuses(id => NETS.montreal.regions.find(r => r.id === id));   // buses 141, 12, 35, 206 with every stop
+  ml.push(...mb.lines);
+  out['montreal-augmented'] = build('Montréal-Augmented', 'montreal', ml, mb.regions);
   out['montreal-base'] = build('Montréal-Base', 'montreal', ['1', '2', '4', '5', 'REM'].map(id => ml.find(l => l.id === id)));
   return out;
 }

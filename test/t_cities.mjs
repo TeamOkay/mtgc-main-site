@@ -47,9 +47,15 @@ ok('Montréal-Augmented keeps buses', ['439', '747', '815', '209', '215', '121']
 { const k = 'montreal-augmented', st = id => M[k].regions.find(r => r.id === id), l121 = L(k, '121');
   ok('Montpellier and Côte-Vertu & Muir are merged', st('montpellier') && !st('cote-vertu-muir') && l121.order.includes('montpellier') && !l121.order.includes('cote-vertu-muir') && l121.order.length === 20, l121.order.length);
   ok('Montpellier is on the REM and the 121', st('montpellier').lines.sort().join() === '121,REM', st('montpellier').lines);
-  ok('141 runs Saint-Michel to Honoré-Beaugrand', L(k, '141') && L(k, '141').order.join() === 'saint-michel,honore-beaugrand' && L(k, '141').rail === false);
-  ok('12 runs Île-des-Sœurs to LaSalle', L(k, '12').order.join() === 'ile-des-surs,lasalle' && L(k, '12').rail === false);
-  ok('35 runs Monk to Place-Saint-Henri', L(k, '35').order.join() === 'monk,place-saint-henri' && L(k, '35').rail === false);
+  const ends2 = (id, a, b, n) => { const o = L(k, id).order; return o[0] === a && o[o.length - 1] === b && o.length === n && L(k, id).rail === false; };
+  ok('141: Saint-Michel to Honoré-Beaugrand with all 49 stops between', ends2('141', 'saint-michel', 'honore-beaugrand', 51), L(k, '141').order.length);
+  ok('141 passes through the 439 station at Pie-IX & Bélanger', L(k, '141').order.includes('pie-ix-belanger') && st('pie-ix-belanger').lines.includes('439'));
+  ok('12: Île-des-Sœurs, Campus Bell, LaSalle', L(k, '12').order.join() === 'ile-des-surs,campus-bell,lasalle');
+  ok('35: Monk to Place-Saint-Henri with 14 stops between', ends2('35', 'monk', 'place-saint-henri', 16), L(k, '35').order.length);
+  ok('206: Fairview–Pointe-Claire to Pierrefonds–Roxboro with 28 stops between', ends2('206', 'fairviewpointe-claire', 'pierrefondsroxboro', 30), L(k, '206').order.length);
+  ok('206 shares the Des Sources & Anselme-Lavigne stop with the 209', L(k, '206').order.includes('des-sources-anselme-lavigne') && st('des-sources-anselme-lavigne').lines.sort().join() === '206,209');
+  ok('every new bus stop has coordinates in the Montréal area and is on its line', ['141', '12', '35', '206'].every(id => L(k, id).order.every(s => { const r = st(s); return r && r.c[0] < -73.4 && r.c[0] > -74 && r.c[1] > 45.3 && r.c[1] < 45.8 && r.lines.includes(id); })));
+  ok('no two stops share a position by accident', (() => { const seen = new Map(); for (const id of ['141', '12', '35', '206']) for (const s of L(k, id).order) { const r = st(s), key = r.c.join(); if (seen.has(key) && seen.get(key) !== s) return false; seen.set(key, s); } return true; })());
   ok('new buses show on their stations', st('lasalle').lines.includes('12') && st('monk').lines.includes('35') && st('saint-michel').lines.includes('141'));
   ok('Montréal-Base unaffected', !M['montreal-base'].lines.some(l => ['12', '35', '141', '121'].includes(l.id)) && M['montreal-base'].regions.some(r => r.id === 'montpellier')); }
 // consistency: region.lines match the lines
