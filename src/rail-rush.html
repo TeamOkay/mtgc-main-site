@@ -427,26 +427,34 @@ function onGame(){if(!S.gid||$('v-game').classList.contains('hide')||!cur())retu
  nav();recompute();paint();renderPop();renderTeams();renderChal();renderLog();renderLob();form();renderHost();importUI();renderRO();renderMapCard()}
 /* ---- map choice ---- */
 const mapId=s=>{s=String(s||'').trim();const m=/[#&?]map=([A-Za-z0-9_-]+)/.exec(s);return m?m[1]:(/^[A-Za-z0-9_-]{6,}$/.test(s)?s:'')};
-async function pickerHTML(){let mine=[];try{if(S.db&&S.me){const q=await S.db.collection('maps').where('owner','==',S.me).get();mine=q.docs.map(d=>({id:d.id,name:d.data().name||'Untitled'}))}}catch(e){console.error(e)}
- return '<label class="mu">Map</label><select id="mp-sel" style="width:100%"><optgroup label="Built-in maps">'+Object.keys(MAPS).map(k=>'<option value="b:'+esc(k)+'">'+esc(MAPS[k].name)+'</option>').join('')+'</optgroup>'
-  +(mine.length?'<optgroup label="My maps">'+mine.map(m=>'<option value="m:'+esc(m.id)+'">'+esc(m.name)+'</option>').join('')+'</optgroup>':'')
+async function pickerHTML(){const g=cur()||{};let mine=[];try{if(S.db&&S.me){const q=await S.db.collection('maps').where('owner','==',S.me).get();mine=q.docs.map(d=>({id:d.id,name:d.data().name||'Untitled'}))}}catch(e){console.error(e)}
+ let curV=g.mapKey&&g.mapKey!=='custom'?'b:'+g.mapKey:g.mapKey==='custom'?(g.mapFrom&&mine.some(m=>m.id===g.mapFrom)?'m:'+g.mapFrom:'cur'):'';
+ const sl=v=>v===curV?' selected':'';
+ return '<label class="mu">Map</label><select id="mp-sel" data-cur="'+esc(curV)+'" style="width:100%">'+(curV==='cur'?'<option value="cur" selected>Current: '+esc(g.mapName||'custom map')+' (copied into this game)</option>':'')+'<optgroup label="Built-in maps">'+Object.keys(MAPS).map(k=>'<option value="b:'+esc(k)+'"'+sl('b:'+k)+'>'+esc(MAPS[k].name)+'</option>').join('')+'</optgroup>'
+  +(mine.length?'<optgroup label="My maps">'+mine.map(m=>'<option value="m:'+esc(m.id)+'"'+sl('m:'+m.id)+'>'+esc(m.name)+'</option>').join('')+'</optgroup>':'')
   +'<option value="o">Someone else\'s map (paste a link)…</option></select><input id="mp-link" class="hide" placeholder="Paste the map link or id" style="width:100%;margin-top:6px">'
   +'<div class="row"><button class="pr" id="mp-go">Use this map</button><span class="mu" id="mp-msg"></span></div>'}
 function wirePicker(){const sel=$('mp-sel'),lk=$('mp-link'),msg=t=>{$('mp-msg').textContent=t};
  sel.onchange=()=>lk.classList.toggle('hide',sel.value!=='o');
- $('mp-go').onclick=async()=>{const v=sel.value;msg('Saving…');$('mp-go').disabled=true;
+ $('mp-go').onclick=async()=>{const v=sel.value;
+  if(v===sel.dataset.cur&&v!=='o'){msg('That is already this game\'s map.');return}
+  const n=S.chal.length;
+  if(n&&!await askC('Change the map and delete all challenges?','Changing the map RESETS THE CHALLENGE LIST. All '+n+' challenge'+(n===1?'':'s')+' you have added to this game will be permanently deleted, because their locations belong to the current map. This cannot be undone. You will need to add challenges again for the new map.','Change map and delete challenges'))return;
+  msg('Saving…');$('mp-go').disabled=true;
   try{let upd;if(v.startsWith('b:')){const k=v.slice(2);upd={mapKey:k,mapName:MAPS[k].name}}
    else{const id=v==='o'?mapId(lk.value):v.slice(2);if(!id){msg('Paste a map link or id.');$('mp-go').disabled=false;return}
     let d;try{d=await S.db.doc('maps/'+id).get()}catch(e){d=null}
     if(!d||!d.exists){msg('That map could not be opened. It may be private or the link may be wrong.');$('mp-go').disabled=false;return}
     const m=JSON.parse(d.data().json||'{}');if(!Array.isArray(m.regions)||!m.regions.length||!Array.isArray(m.lines)){msg('That map has no stations.');$('mp-go').disabled=false;return}
-    await S.db.doc(G()+'/mapdata/cur').set({json:d.data().json,from:id});upd={mapKey:'custom',mapName:d.data().name||m.name||'Custom map'}}
+    await S.db.doc(G()+'/mapdata/cur').set({json:d.data().json,from:id});upd={mapKey:'custom',mapName:d.data().name||m.name||'Custom map',mapFrom:id}}
+   if(upd.mapKey!=='custom')upd.mapFrom=null;
+   if(n)await Promise.all(S.chal.map(c=>S.db.doc(G()+'/challenges/'+c.id).delete()));
    upd.mapRev=Date.now();await S.db.doc('games/'+S.gid).update(upd)}
   catch(e){console.error(e);msg('Could not save the map.');$('mp-go').disabled=false}}}
 async function renderNoMap(){const b=$('nomap');if(!S.host){b.innerHTML='<b>Choosing a map</b><div class="mu">The host hasn\'t picked a map yet. This page updates by itself once they do.</div>';return}
- if(b.dataset.k==='h')return;b.dataset.k='h';b.innerHTML='<b>Choose a map</b><div class="mu">Pick a built-in map, one of your saved maps, or someone else\'s shared map. You can change it until the game starts and while there are no challenges.</div>'+await pickerHTML();wirePicker()}
-let mcKey='';async function renderMapCard(){const c=$('mapcard'),g=cur();if(!c||!g)return;const can=S.host&&!S.board.started&&!S.chal.length&&!g.city,k=g.mapKey+'|'+g.mapRev+'|'+can;if(k===mcKey&&c.innerHTML)return;mcKey=k;
- c.innerHTML='<h3>Map</h3><div class="mu">'+esc(g.mapName||(CITY[g.city]||{}).name||'')+'</div>'+(g.city?'<div class="mu">This game uses an original city map, which cannot be swapped.</div>':can?await pickerHTML():'<div class="mu">The map is locked once the game has started or challenges have been added.</div>');if(can)wirePicker()}
+ if(b.dataset.k==='h')return;b.dataset.k='h';b.innerHTML='<b>Choose a map</b><div class="mu">Pick a built-in map, one of your saved maps, or someone else\'s shared map. You can change it until the game starts.</div>'+await pickerHTML();wirePicker()}
+let mcKey='';async function renderMapCard(){const c=$('mapcard'),g=cur();if(!c||!g)return;const can=S.host&&!S.board.started&&!g.city,k=g.mapKey+'|'+g.mapRev+'|'+can+'|'+S.chal.length;if(k===mcKey&&c.innerHTML)return;mcKey=k;
+ c.innerHTML='<h3>Map</h3><div class="mu">'+esc(g.mapName||(CITY[g.city]||{}).name||'')+'</div>'+(g.city?'<div class="mu">This game uses an original city map, which cannot be swapped.</div>':can?(S.chal.length?'<div class="mu" style="color:#c0392b"><b>Warning:</b> changing the map deletes all '+S.chal.length+' challenge'+(S.chal.length===1?'':'s')+' you have added.</div>':'')+await pickerHTML():'<div class="mu">The map is locked once the game has started.</div>');if(can)wirePicker()}
 /* ---- init ---- */
 const G=()=>'games/'+S.gid;
 const CITY={toronto:{name:'Toronto',d:'Subway, LRT, GO and UP rail, streetcars and buses'},montreal:{name:'Montréal',d:'Métro, REM, and the 121, 209, 215, 439, 747 and 815 buses; exo and more to come'},boston:{name:'Boston',d:'Red, Orange, Blue and Green lines, Mattapan trolley, and Silver Line SL1, SL2 and SL3'}};

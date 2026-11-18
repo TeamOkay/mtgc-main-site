@@ -74,6 +74,13 @@ export function cityMaps(NETS) {
     { name: 'A3', order: M3.order.slice() }, { name: 'A4', order: from(MA.order, 'bois-franc', 'A') }] };
   if (M3.order[0] !== 'bois-franc') throw new Error('A3 start');
   const ml = swap('montreal', ['A', 'A3'], [rem]);
+  // Augmented-only edits: the 121's Côte-Vertu & Muir stop is the REM's Montpellier station, and three short bus links are added.
+  const b121 = ml.find(l => l.id === '121'), mi = at(b121.order, 'cote-vertu-muir', '121');
+  b121.order[mi] = 'montpellier';
+  const bus = (id, name, color, order) => { order.forEach(s => { if (!NETS.montreal.regions.some(r => r.id === s)) throw new Error('station ' + s); }); return { id, name, color, rail: false, order }; };
+  ml.push(bus('141', '141 Saint-Michel / Honoré-Beaugrand (bus)', '#7cb342', ['saint-michel', 'honore-beaugrand']));
+  ml.push(bus('12', '12 Île-des-Sœurs / LaSalle (bus)', '#5e35b1', ['ile-des-surs', 'lasalle']));   // LaSalle = Gaétan-Laberge / Gilberte-Dubé
+  ml.push(bus('35', '35 Monk / Place-Saint-Henri (bus)', '#ff7043', ['monk', 'place-saint-henri']));
   out['montreal-augmented'] = build('Montréal-Augmented', 'montreal', ml);
   out['montreal-base'] = build('Montréal-Base', 'montreal', ['1', '2', '4', '5', 'REM'].map(id => ml.find(l => l.id === id)));
   return out;

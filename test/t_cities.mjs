@@ -43,6 +43,15 @@ for (const k of ['montreal-augmented', 'montreal-base']) {
 }
 ok('Montréal-Base lines', M['montreal-base'].lines.map(l => l.id).sort().join() === '1,2,4,5,REM', M['montreal-base'].lines.map(l => l.id));
 ok('Montréal-Augmented keeps buses', ['439', '747', '815', '209', '215', '121'].every(id => L('montreal-augmented', id)));
+// Montréal-Augmented edits
+{ const k = 'montreal-augmented', st = id => M[k].regions.find(r => r.id === id), l121 = L(k, '121');
+  ok('Montpellier and Côte-Vertu & Muir are merged', st('montpellier') && !st('cote-vertu-muir') && l121.order.includes('montpellier') && !l121.order.includes('cote-vertu-muir') && l121.order.length === 20, l121.order.length);
+  ok('Montpellier is on the REM and the 121', st('montpellier').lines.sort().join() === '121,REM', st('montpellier').lines);
+  ok('141 runs Saint-Michel to Honoré-Beaugrand', L(k, '141') && L(k, '141').order.join() === 'saint-michel,honore-beaugrand' && L(k, '141').rail === false);
+  ok('12 runs Île-des-Sœurs to LaSalle', L(k, '12').order.join() === 'ile-des-surs,lasalle' && L(k, '12').rail === false);
+  ok('35 runs Monk to Place-Saint-Henri', L(k, '35').order.join() === 'monk,place-saint-henri' && L(k, '35').rail === false);
+  ok('new buses show on their stations', st('lasalle').lines.includes('12') && st('monk').lines.includes('35') && st('saint-michel').lines.includes('141'));
+  ok('Montréal-Base unaffected', !M['montreal-base'].lines.some(l => ['12', '35', '141', '121'].includes(l.id)) && M['montreal-base'].regions.some(r => r.id === 'montpellier')); }
 // consistency: region.lines match the lines
 for (const k of Object.keys(M)) ok(k + ' station line lists are consistent', M[k].regions.every(r => r.lines.every(id => { const l = L(k, id); return l && (l.order.includes(r.id) || (l.branches || []).some(b => b.order.includes(r.id))); })) && M[k].lines.every(l => l.order.concat(...(l.branches || []).map(b => b.order)).every(id => M[k].regions.some(r => r.id === id))));
 console.log(`${n - bad}/${n}`); process.exit(bad ? 1 : 0);
