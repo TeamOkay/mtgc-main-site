@@ -107,6 +107,7 @@ button.game:hover{border-color:var(--mute)}
       <button class="btn btn-go" id="go-start" type="button">Start Game</button>
       <button class="btn" id="go-ongoing" type="button">View Ongoing Games</button>
       <button class="btn" id="go-past" type="button">View Past Games</button>
+      <button class="btn" id="go-editor" type="button">Map Editor</button>
     </div>
   </section>
 
@@ -540,6 +541,29 @@ button.game:hover{border-color:var(--mute)}
     show("game");
   }
 
+  /* ---------- map editor: runs in its own frame, like a game. Share links look like  /#map=<id>  ---------- */
+  function openEditor(mapId) {
+    mapId = /^[A-Za-z0-9_-]{3,60}$/.test(mapId || "") ? mapId : "";
+    var key = "editor:" + mapId, f = frames[key];
+    cur = { id: "__editor", name: "Map editor" };
+    if (!f && HTML["map-editor"]) {
+      f = document.createElement("iframe");
+      f.className = "frame";
+      f.title = "Map editor";
+      f.addEventListener("load", function () { syncTheme(f); });
+      f.srcdoc = HTML["map-editor"].split("__TGID__").join(mapId);
+      $("stage").appendChild(f);
+      frames[key] = f;
+    }
+    if (!f) return;
+    Object.keys(frames).forEach(function (k) { frames[k].hidden = k !== key; });
+    show("game");
+  }
+  function mapFromHash() {
+    var m = /^#map=([A-Za-z0-9_-]{3,60})$/.exec(location.hash || "");
+    return m ? m[1] : "";
+  }
+
   async function enterGame(id) {
     var g = await loadGame(id);
     if (!g) { await notice("Game not found", "That game no longer exists."); return; }
@@ -641,6 +665,9 @@ button.game:hover{border-color:var(--mute)}
   $("go-start").onclick = function () { show("start"); };
   $("go-ongoing").onclick = function () { renderOngoing(); show("ongoing"); };
   $("go-past").onclick = function () { renderPast(); show("past"); };
+  $("go-editor").onclick = function () { openEditor(""); };
+  window.addEventListener("hashchange", function () { var m = mapFromHash(); if (m) openEditor(m); });
+  if (mapFromHash()) openEditor(mapFromHash());
   $("brand").onclick = function () { show("home"); };
   $("back").onclick = function () { show("home"); };
   $("typelist").onclick = function (e) { var b = e.target.closest("[data-t]"); if (b) startGame(b.dataset.t); };

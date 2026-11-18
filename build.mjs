@@ -7,6 +7,25 @@ for (const k of ['rail-rush', 'area-claiming', 'ticket-to-ride']) {
   const s = rd(`src/${k}.html`), i = s.toLowerCase().indexOf('<head>') + '<head>'.length;
   games[k] = s.slice(0, i) + SHIM + s.slice(i);
 }
+/* Map editor: embeds the built-in Rail Rush cities (read from rail-rush.html) so they can be opened and copied there. */
+{
+  const rr = rd('src/rail-rush.html'), i = rr.indexOf('const NETS='), j = rr.indexOf('\n', i);
+  if (i < 0) throw new Error('NETS not found in rail-rush.html');
+  const NETS = new Function('return ' + rr.slice(i + 'const NETS='.length, j).replace(/;\s*$/, ''))();
+  const NAMES = { toronto: 'Toronto', montreal: 'Montréal', boston: 'Boston' };
+  const RAIL = /^(\d|A\d?|LSE|LSW|UP|Red[AB]|Orange|Blue|Green[BCDE]|Mattapan)$/;   // same rule Rail Rush used to tell rail from bus
+  const built = {};
+  for (const k of Object.keys(NAMES)) {
+    if (!NETS[k]) throw new Error('missing city ' + k);
+    built[k] = { name: NAMES[k], regions: NETS[k].regions, lines: NETS[k].lines.map(l => Object.assign({}, l, { rail: RAIL.test(l.id) })) };
+  }
+  let ed = rd('src/map-editor.html');
+  if (ed.split('/*__BUILTINS__*/{}').length !== 2) throw new Error('map-editor placeholder missing');
+  const cities = JSON.stringify(built).replace(/<\//g, '<\\/');
+  const k0 = ed.toLowerCase().indexOf('<head>') + '<head>'.length;
+  ed = ed.replace('/*__BUILTINS__*/{}', () => cities);
+  games['map-editor'] = ed.slice(0, k0) + SHIM + ed.slice(k0);
+}
 const blob = JSON.stringify(games).replace(/<\//g, '<\\/').split(String.fromCharCode(8232)).join('\\u2028').split(String.fromCharCode(8233)).join('\\u2029');
 let shell = rd('src/shell.html');
 if (shell.split('__HTML__').length !== 2 || shell.split('/*__PLATFORM__*/').length !== 2) throw new Error('shell placeholders missing');
