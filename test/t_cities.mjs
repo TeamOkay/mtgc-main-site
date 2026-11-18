@@ -59,7 +59,12 @@ ok('Montréal-Augmented keeps buses', ['439', '747', '815', '209', '215', '121']
   ok('121 thinned from 20 to 10 stops, all interchanges kept', l121.order.length === 10 && ['sauve', 'montpellier', 'cote-vertu'].every(s => l121.order.includes(s)), l121.order.length);
   ok('121 order runs Sauvé, Montpellier, Côte-Vertu', l121.order[0] === 'sauve' && l121.order.indexOf('montpellier') > 0 && l121.order.indexOf('montpellier') < 9 && l121.order[9] === 'cote-vertu');
   ok('215 lost one stop and keeps Côte-Vertu and Bois-Franc', L(k, '215').order.length === 5 && L(k, '215').order[0] === 'cote-vertu' && L(k, '215').order[4] === 'bois-franc');
-  ok('Côte-Vertu moved down, and the next Orange stations moved less', st('cote-vertu').c[1] < 45.5143 - 0.009 && st('du-college').c[1] < 45.5095 && st('du-college').c[1] > st('cote-vertu').c[1] - 0.005 + 0.0001);
+  ok('Côte-Vertu moved south-west of its original spot', st('cote-vertu').c[1] < 45.5143 - 0.005 && st('cote-vertu').c[0] < -73.6835 - 0.01, st('cote-vertu').c);
+  { const ids = ['cote-vertu', 'du-college', 'de-la-savane', 'namur', 'plamondon', 'cote-sainte-catherine', 'snowdon'], c = ids.map(s => st(s).c), a = c[0], b = c[6];
+    const dev = Math.max(...c.map(p => { const t = ((p[0] - a[0]) * (b[0] - a[0]) + (p[1] - a[1]) * (b[1] - a[1])) / (Math.pow(b[0] - a[0], 2) + Math.pow(b[1] - a[1], 2)); return Math.hypot((a[0] + t * (b[0] - a[0]) - p[0]) * 78.3, (a[1] + t * (b[1] - a[1]) - p[1]) * 111.2); }));
+    ok('Orange stations from Côte-Vertu to Snowdon lie on a straight line', dev < 0.05, dev); }
+  { const o = l121.order.map(s => st(s).c), mi = l121.order.indexOf('montpellier'), ang = (a, b) => Math.atan2((b[1] - a[1]) * 111.2, (b[0] - a[0]) * 78.3) * 180 / Math.PI, bend = Math.abs(ang(o[mi], o[9]) - ang(o[0], o[mi]));
+    ok('121 bends less than 25 degrees at Montpellier', bend < 25, bend); }
   { const o = l121.order.map(s => st(s).c), km = (a, b) => Math.hypot((b[0] - a[0]) * 78.3, (b[1] - a[1]) * 111.2), g = o.slice(1).map((c, i) => km(o[i], c));
     ok('121 stops are mostly evenly spaced', Math.max(...g) / Math.min(...g) < 2.5, g.map(x => x.toFixed(2)).join(' ')); }
   ok('removed stops are gone from the map', !st('cote-vertu-lebeau') && !st('pierrefondsroxboro').lines.includes('206') && !st('gouin-2e-avenue'));

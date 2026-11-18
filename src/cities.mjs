@@ -80,8 +80,10 @@ export function cityMaps(NETS) {
   const b121 = ml.find(l => l.id === '121'), mi = at(b121.order, 'cote-vertu-muir', '121');
   b121.order[mi] = 'montpellier';
   const reg = id => NETS.montreal.regions.find(r => r.id === id), over = {};
-  // Côte-Vertu and the next Orange stations move down a little (tapering to nothing) so the 121 and 215 can run straight.
-  [['cote-vertu', 1], ['du-college', 0.8], ['de-la-savane', 0.6], ['namur', 0.4], ['plamondon', 0.2]].forEach(([id, f]) => { over[id] = [reg(id).c[0], Math.round((reg(id).c[1] - 0.01 * f) * 1e4) / 1e4]; });
+  // Côte-Vertu moves south-west so the 121 runs straight from Sauvé through Montpellier; the Orange stations out to Snowdon are re-laid evenly on a straight line from it.
+  over['cote-vertu'] = [-73.702, 45.506];
+  const oOrder = get('montreal', '2').order, oi = oOrder.indexOf('cote-vertu'), osn = oOrder.indexOf('snowdon');
+  Object.assign(over, respace(oOrder.slice(oi, osn + 1), ['cote-vertu', 'snowdon'], id => over[id] || reg(id).c));
   const pos = id => over[id] || reg(id).c, isIC = id => id === 'montpellier' || reg(id).lines.length > 1;
   // Straighten a bus route between its anchors, drop `remove` non-interchange stops evenly, then space the rest evenly.
   const thinBus = (l, anchors, remove) => {
