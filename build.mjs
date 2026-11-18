@@ -1,5 +1,6 @@
 // Builds public/index.html: the shell with the three games, the Firebase config and the platform layer embedded.
 import fs from 'node:fs';
+import { cityMaps } from './src/cities.mjs';
 const rd = f => fs.readFileSync(f, 'utf8');
 const SHIM = '<script>(function(){var p=window.parent;window.TG_GID="__TGID__";window.claude={use:function(n){try{return p.claude.use(n)}catch(e){return Promise.resolve(null)}}}})();</script>';
 const games = {};
@@ -12,13 +13,7 @@ for (const k of ['rail-rush', 'area-claiming', 'ticket-to-ride']) {
   const rr = rd('src/rail-rush.html'), i = rr.indexOf('const NETS='), j = rr.indexOf('\n', i);
   if (i < 0) throw new Error('NETS not found in rail-rush.html');
   const NETS = new Function('return ' + rr.slice(i + 'const NETS='.length, j).replace(/;\s*$/, ''))();
-  const NAMES = { toronto: 'Toronto', montreal: 'Montréal', boston: 'Boston' };
-  const RAIL = /^(\d|A\d?|LSE|LSW|UP|Red[AB]|Orange|Blue|Green[BCDE]|Mattapan)$/;   // same rule Rail Rush used to tell rail from bus
-  const built = {};
-  for (const k of Object.keys(NAMES)) {
-    if (!NETS[k]) throw new Error('missing city ' + k);
-    built[k] = { name: NAMES[k], regions: NETS[k].regions, lines: NETS[k].lines.map(l => Object.assign({}, l, { rail: RAIL.test(l.id) })) };
-  }
+  const built = cityMaps(NETS);
   let ed = rd('src/map-editor.html');
   if (ed.split('/*__BUILTINS__*/{}').length !== 2) throw new Error('map-editor placeholder missing');
   const cities = JSON.stringify(built).replace(/<\//g, '<\\/');
