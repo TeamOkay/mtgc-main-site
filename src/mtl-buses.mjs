@@ -32,20 +32,17 @@ export const ROUTES = [
     S('Saint-Rémi & Cabot'), S('Saint-Rémi & Sainte-Émilie'), S('Saint-Rémi & Notre-Dame', [-73.5815, 45.4720]), S('Notre-Dame & de Courcelle'),
     S('Square Sir-George-Étienne-Cartier', [-73.5885, 45.4745]), S('Saint-Jacques & Saint-Philippe', [-73.5882, 45.4762]),
     E('place-saint-henri')] },
-  { id: '206', name: '206 Roger-Pilon (Fairview–Pointe-Claire / Pierrefonds-Roxboro) (bus)', color: '#00897b', stops: [
+  { id: '206', name: '206 Roger-Pilon (Fairview–Pointe-Claire / Des Sources) (bus)', color: '#00897b', stops: [
     E('fairviewpointe-claire'),
     S('Brunswick & Auto Plaza'), S('Saint-Jean & Blue Haven', [-73.8245, 45.4790]), S('Blue Haven & des Pins'), S('Blue Haven & Jourdain'), S('Blue Haven & Viking'),
     S('Blue Haven & Lake'), S('Lake & Hemingway'), S('Hemingway & Greenfield'), S('Baffin & Roger-Pilon', [-73.7995, 45.4838]),
     S('Roger-Pilon & Tecumseh'), S('Roger-Pilon & Fredmir'), S('Roger-Pilon & Manuel'), S('Roger-Pilon & Westpark'),
     S('Westpark & Wilson'), S('Westpark & Anselme-Lavigne'), S('Anselme-Lavigne & Oslo'), S('Anselme-Lavigne & Greenview'),
-    E('des-sources-anselme-lavigne'),                       // Anselme-Lavigne / des Sources
-    S('Des Sources & Belcourt'), S('14e Rue & 19e Avenue'), S('14e Rue & 18e Avenue'), S('14e Rue & 15e Avenue'), S('14e Rue & 13e Avenue'),
-    S('11e Avenue & 14e Rue'), S('11e Avenue & 11e Rue'), S('11e Avenue & 9e Rue'), S('Centre-Commercial & 4e Avenue'), S('Gouin & 2e Avenue'),
-    E('pierrefondsroxboro')] },                             // Gouin / 4e Avenue = the Pierrefonds–Roxboro station
+    E('des-sources-anselme-lavigne')] },
 ];
 
 /** Builds { lines, regions } for the routes above. `byId` looks up an existing station by id. */
-export function mtlBuses(byId) {
+export function mtlBuses(byId, remove = {}) {
   const lines = [], regions = [], seen = new Set();
   for (const R of ROUTES) {
     const pts = R.stops.map(s => {
@@ -58,8 +55,31 @@ export function mtlBuses(byId) {
       const t = (i - a) / (b - a); p.c = [pts[a].c[0] + (pts[b].c[0] - pts[a].c[0]) * t, pts[a].c[1] + (pts[b].c[1] - pts[a].c[1]) * t].map(v => Math.round(v * 1e4) / 1e4);
       p.guess = true;
     });
-    pts.forEach(p => { if (p.n) { if (seen.has(p.id) || byId(p.id)) throw new Error('duplicate stop id ' + p.id); seen.add(p.id); regions.push({ id: p.id, name: p.n, c: p.c, lines: [], pt: 1 }); } });
-    lines.push({ id: R.id, name: R.name, color: R.color, rail: false, order: pts.map(p => p.id) });
+    let keep = pts;
+    if (remove[R.id]) keep = thinEven(pts, p => p.c, p => !p.n, remove[R.id]);
+    keep.forEach(p => { if (p.n) { if (seen.has(p.id) || byId(p.id)) throw new Error('duplicate stop id ' + p.id); seen.add(p.id); regions.push({ id: p.id, name: p.n, c: p.c, lines: [], pt: 1 }); } });
+    lines.push({ id: R.id, name: R.name, color: R.color, rail: false, order: keep.map(p => p.id) });
   }
   return { lines, regions };
+}
+
+const dist = (a, b) => Math.hypot((a[0] - b[0]) * 0.7, a[1] - b[1]);
+/** Drops `remove` stops from `items` ({c}), never a stop for which isMand() is true, leaving the spacing along the line as even as possible. */
+export function thinEven(items, posOf, isMand, remove) {
+  const n = items.length, s = [0]; for (let i = 1; i < n; i++) s.push(s[i - 1] + dist(posOf(items[i - 1]), posOf(items[i])));
+  const mand = items.map((x, i) => (i === 0 || i === n - 1 || isMand(x)) ? i : -1).filter(i => i >= 0);
+  const free = n - mand.length, extras = Math.max(0, Math.min(free, free - remove)), total = s[n - 1];
+  const segs = []; for (let k = 0; k + 1 < mand.length; k++) segs.push({ a: mand[k], b: mand[k + 1], m: mand[k + 1] - mand[k] - 1, len: s[mand[k + 1]] - s[mand[k]] });
+  let used = 0; segs.forEach(g => { g.q = total ? g.len * extras / total : 0; g.e = Math.min(g.m, Math.floor(g.q)); used += g.e; });
+  while (used < extras) { const g = segs.filter(x => x.e < x.m).sort((x, y) => (y.q - y.e) - (x.q - x.e))[0]; if (!g) break; g.e++; used++; }
+  const keep = new Set(mand);
+  segs.forEach(g => { const taken = new Set(); for (let j = 1; j <= g.e; j++) { const t = s[g.a] + g.len * j / (g.e + 1); let best = -1, bd = 1e9; for (let i = g.a + 1; i < g.b; i++) if (!taken.has(i) && Math.abs(s[i] - t) < bd) { bd = Math.abs(s[i] - t); best = i; } taken.add(best); keep.add(best); } });
+  return items.filter((_, i) => keep.has(i));
+}
+/** Spaces the stops between consecutive anchors (ids in `anchors`) evenly along straight legs. Returns { id: [lon, lat] }. */
+export function respace(order, anchors, posOf) {
+  const out = {}, ai = order.map((id, i) => anchors.includes(id) ? i : -1).filter(i => i >= 0);
+  for (let k = 0; k + 1 < ai.length; k++) { const a = ai[k], b = ai[k + 1], pa = posOf(order[a]), pb = posOf(order[b]);
+    for (let i = a + 1; i < b; i++) { const t = (i - a) / (b - a); out[order[i]] = [Math.round((pa[0] + (pb[0] - pa[0]) * t) * 1e4) / 1e4, Math.round((pa[1] + (pb[1] - pa[1]) * t) * 1e4) / 1e4]; } }
+  return out;
 }

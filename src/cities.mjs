@@ -7,7 +7,7 @@
 
 const RAIL = /^(\d|A\d?|LSE|LSW|UP|Red[AB]|Orange|Blue|Green[BCDE]|Mattapan)$/;   // how Rail Rush has told rail from bus
 
-import { mtlBuses } from './mtl-buses.mjs';
+import { mtlBuses, thinEven, respace } from './mtl-buses.mjs';
 
 export function cityMaps(NETS) {
   const out = {};
@@ -18,12 +18,12 @@ export function cityMaps(NETS) {
   const same = (a, b, w) => { if (a.join() !== b.join()) throw new Error('trunk mismatch: ' + w); };
   const plain = (c, id) => { const l = get(c, id); return { id: l.id, name: l.name, color: l.color, rail: RAIL.test(l.id), order: l.order.slice() }; };
 
-  function build(name, city, lines, extra = []) {
+  function build(name, city, lines, extra = [], over = {}) {
     const used = new Set();
     lines.forEach(l => { l.order.concat(...(l.branches || []).map(b => b.order)).forEach(i => used.add(i)); });
     const regions = NETS[city].regions.concat(extra).filter(r => used.has(r.id)).map(r => {
       const ls = lines.filter(l => l.order.includes(r.id) || (l.branches || []).some(b => b.order.includes(r.id))).map(l => l.id);
-      return Object.assign({}, r, { lines: ls });
+      return Object.assign({}, r, over[r.id] ? { c: over[r.id] } : {}, { lines: ls });
     });
     return { name, regions, lines };
   }
@@ -79,9 +79,21 @@ export function cityMaps(NETS) {
   // Augmented-only edits: the 121's Côte-Vertu & Muir stop is the REM's Montpellier station, and three short bus links are added.
   const b121 = ml.find(l => l.id === '121'), mi = at(b121.order, 'cote-vertu-muir', '121');
   b121.order[mi] = 'montpellier';
-  const mb = mtlBuses(id => NETS.montreal.regions.find(r => r.id === id));   // buses 141, 12, 35, 206 with every stop
+  const reg = id => NETS.montreal.regions.find(r => r.id === id), over = {};
+  // Côte-Vertu and the next Orange stations move down a little (tapering to nothing) so the 121 and 215 can run straight.
+  [['cote-vertu', 1], ['du-college', 0.8], ['de-la-savane', 0.6], ['namur', 0.4], ['plamondon', 0.2]].forEach(([id, f]) => { over[id] = [reg(id).c[0], Math.round((reg(id).c[1] - 0.01 * f) * 1e4) / 1e4]; });
+  const pos = id => over[id] || reg(id).c, isIC = id => id === 'montpellier' || reg(id).lines.length > 1;
+  // Straighten a bus route between its anchors, drop `remove` non-interchange stops evenly, then space the rest evenly.
+  const thinBus = (l, anchors, remove) => {
+    Object.assign(over, respace(l.order, anchors, pos));
+    l.order = thinEven(l.order.map(id => ({ id })), x => pos(x.id), x => isIC(x.id), remove).map(x => x.id);
+    Object.assign(over, respace(l.order, anchors, pos));
+  };
+  thinBus(b121, ['sauve', 'montpellier', 'cote-vertu'], 10);
+  thinBus(ml.find(l => l.id === '215'), ['cote-vertu', 'bois-franc'], 1);
+  const mb = mtlBuses(reg, { '141': 33, '35': 5, '206': 10 });   // buses 141, 35, 206 thinned; 12 as is
   ml.push(...mb.lines);
-  out['montreal-augmented'] = build('Montréal-Augmented', 'montreal', ml, mb.regions);
-  out['montreal-base'] = build('Montréal-Base', 'montreal', ['1', '2', '4', '5', 'REM'].map(id => ml.find(l => l.id === id)));
+  out['montreal-augmented'] = build('Montréal-Augmented', 'montreal', ml, mb.regions, over);
+  out['montreal-base'] = build('Montréal-Base', 'montreal', ['1', '2', '4', '5', 'REM'].map(id => ml.find(l => l.id === id)), [], over);
   return out;
 }
