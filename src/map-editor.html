@@ -1,0 +1,764 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Map Editor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap">
+<style>
+:root{
+  --bg:#eef1f6; --panel:#ffffff; --ink:#18212f; --mute:#5d6878; --rule:#cfd6e2; --grid:#dde3ed; --map:#f6f8fb;
+  --accent:#1f5fd1; --accent-ink:#ffffff; --good:#14803c; --warn:#a86500; --bad:#c62828; --node:#ffffff; --nodeline:#18212f;
+  --display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif; --body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0d1520; --panel:#15202e; --ink:#e8edf5; --mute:#97a3b4; --rule:#2a3a4d; --grid:#1c2a3b; --map:#101b29;
+  --accent:#6ea0ff; --accent-ink:#0d1520; --good:#5fd08a; --warn:#f0b24a; --bad:#ff7a7a; --node:#15202e; --nodeline:#e8edf5; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0d1520; --panel:#15202e; --ink:#e8edf5; --mute:#97a3b4; --rule:#2a3a4d; --grid:#1c2a3b; --map:#101b29;
+  --accent:#6ea0ff; --accent-ink:#0d1520; --good:#5fd08a; --warn:#f0b24a; --bad:#ff7a7a; --node:#15202e; --nodeline:#e8edf5; color-scheme:dark}
+html,body{height:100%}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.4 var(--body)}
+button,input,select,textarea{font:inherit;color:inherit}
+.app{height:100%;display:flex;flex-direction:column;padding-left:max(0px,env(safe-area-inset-left,0px));padding-right:max(0px,env(safe-area-inset-right,0px))}
+header{flex:none;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px max(16px,env(safe-area-inset-right,0px)) 8px max(16px,env(safe-area-inset-left,0px));background:var(--panel);border-bottom:3px solid var(--accent)}
+h1{margin:0;font:700 22px/1 var(--display);letter-spacing:.05em;text-transform:uppercase}
+.nameIn{flex:1;min-width:140px;max-width:300px;padding:6px 9px;border:1px solid var(--rule);border-radius:6px;background:var(--bg)}
+.search{flex:none;width:100%;padding:6px 9px;border:1px solid var(--rule);border-radius:6px;background:var(--bg)}
+.hgrp{display:flex;gap:6px;margin-left:auto}
+.btn{padding:6px 11px;border-radius:6px;border:1px solid var(--rule);background:var(--panel);cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+.btn[disabled]{opacity:.4;cursor:default}
+.btn.pri{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.sm{padding:3px 8px;font-size:12px}
+.btn.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.main{flex:1;min-height:0;display:grid;grid-template-columns:1fr 360px}
+.mapwrap{position:relative;min-width:0;min-height:0;background:var(--map);overflow:hidden}
+svg#map{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;user-select:none;-webkit-user-select:none}
+.tools{position:absolute;left:10px;top:10px;display:flex;gap:6px;flex-wrap:wrap;max-width:calc(100% - 70px)}
+.drawbar{position:absolute;left:10px;top:54px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;max-width:calc(100% - 70px);padding:6px 8px;background:var(--panel);border:1px solid var(--rule);border-radius:8px}
+.drawbar[hidden]{display:none}
+.drawbar .xf{max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:560px){.drawbar{top:96px}}
+.drawbar select{padding:4px 6px;border:1px solid var(--rule);border-radius:6px;background:var(--bg);max-width:150px}
+.zoom{position:absolute;right:10px;top:10px;display:flex;flex-direction:column;gap:6px}
+.zoom .btn{width:36px;height:36px;padding:0;font-size:18px;line-height:1;display:inline-flex;align-items:center;justify-content:center}
+.zoom .btn:disabled{opacity:.4}
+.status{position:absolute;left:10px;bottom:10px;right:10px;display:flex;justify-content:space-between;align-items:flex-end;gap:10px;pointer-events:none;font-size:12px;color:var(--mute)}
+.hint{background:var(--panel);border:1px solid var(--rule);border-radius:6px;padding:5px 9px;max-width:min(520px,70%)}
+.scale{display:flex;flex-direction:column;gap:2px;align-items:flex-start;text-align:left}
+.scale i{display:block;height:6px;border:2px solid var(--ink);border-top:0}
+aside{min-height:0;display:flex;flex-direction:column;background:var(--panel);border-left:1px solid var(--rule)}
+.tabs{flex:none;display:flex;border-bottom:1px solid var(--rule)}
+.tabs button{flex:1;padding:9px 4px;border:0;border-bottom:3px solid transparent;background:none;cursor:pointer;font:600 14px var(--body);color:var(--mute)}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.pane{flex:1;min-height:0;overflow:auto;padding:12px max(16px,env(safe-area-inset-right,0px)) 18px 14px;display:flex;flex-direction:column;gap:12px}
+.pane[hidden]{display:none}
+h2{margin:0;font:700 14px/1 var(--display);letter-spacing:.09em;text-transform:uppercase;color:var(--mute)}
+label.f{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--mute)}
+label.f input,label.f select{padding:6px 8px;border:1px solid var(--rule);border-radius:6px;background:var(--bg);color:var(--ink);font-size:14px;min-width:0}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.row>*{min-width:0}
+.card{border:1px solid var(--rule);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:8px;background:var(--bg)}
+.list{display:flex;flex-direction:column;gap:4px;margin:0;padding:0;list-style:none}
+.item{display:flex;align-items:center;gap:8px;padding:5px 8px;border:1px solid var(--rule);border-radius:6px;cursor:pointer;background:transparent;width:100%;text-align:left}
+.item[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+.item b{font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dot{width:11px;height:11px;border-radius:50%;border:1px solid rgba(0,0,0,.35);flex:none}
+.sw{width:26px;height:6px;border-radius:3px;flex:none;border:1px solid rgba(0,0,0,.3)}
+.mu{color:var(--mute);font-size:12px}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border:1px solid var(--rule);border-radius:99px;font-size:12px}
+input[type=color]{width:34px;height:28px;padding:0;border:1px solid var(--rule);border-radius:6px;background:none;cursor:pointer}
+.ord{display:flex;align-items:center;gap:4px;padding:2px 0;font-size:13px}
+.ord span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ord .btn{padding:0 6px;line-height:20px}
+.iss{display:flex;gap:8px;align-items:flex-start;padding:6px 8px;border:1px solid var(--rule);border-radius:6px;font-size:13px}
+.iss.e{border-color:var(--bad)} .iss.w{border-color:var(--warn)}
+.iss em{font-style:normal;font-weight:700;font-size:11px;letter-spacing:.06em;text-transform:uppercase;flex:none;width:44px}
+.iss.e em{color:var(--bad)} .iss.w em{color:var(--warn)}
+.ok{color:var(--good);font-weight:600}
+textarea{width:100%;min-height:130px;padding:8px;border:1px solid var(--rule);border-radius:6px;background:var(--bg);font:12px/1.35 ui-monospace,Menlo,Consolas,monospace;resize:vertical}
+.msg{font-size:12px;color:var(--mute);min-height:16px}
+.modal{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45);z-index:50;padding:16px}
+.mbox{background:var(--panel);color:var(--ink);border:1px solid var(--rule);border-radius:10px;padding:16px;max-width:440px;width:100%;display:flex;flex-direction:column;gap:10px;box-shadow:0 8px 30px rgba(0,0,0,.3)}
+.mbox p{margin:0}.mrow{display:flex;gap:8px;flex-wrap:wrap}
+.savest{font-size:12px;color:var(--mute);min-width:0}.savest.err{color:var(--bad)}
+.rob{flex:none;display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:8px max(16px,env(safe-area-inset-left,0px));background:var(--panel);border-bottom:1px solid var(--rule)}
+.rob[hidden]{display:none}
+.lib{height:100%;overflow:auto;padding:22px max(16px,env(safe-area-inset-right,0px)) 48px max(16px,env(safe-area-inset-left,0px))}
+.lib[hidden],.app[hidden]{display:none}
+.lib-in{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.lib h1{font-size:38px}
+.lib .btn{padding:8px 14px}
+.chip.on{border-color:var(--accent);color:var(--ink)}
+.ro .tools,.ro .drawbar,.ro #undo,.ro #redo{display:none}
+.meter{height:10px;border-radius:5px;background:var(--bg);border:1px solid var(--rule);overflow:hidden}
+.meter i{display:block;height:100%;background:var(--accent)}.meter i.hi{background:var(--warn)}.meter i.full{background:var(--bad)}
+.linkbox{width:100%;padding:7px 9px;border:1px solid var(--rule);border-radius:6px;background:var(--bg);font:12px ui-monospace,Menlo,Consolas,monospace}
+.mbox label.chk{display:flex;gap:8px;align-items:flex-start}
+@media (max-width:820px){
+  .main{grid-template-columns:1fr;grid-template-rows:minmax(300px,55%) 1fr}
+  aside{border-left:0;border-top:1px solid var(--rule)}
+  .hint{display:none}
+}
+</style>
+</head><body>
+<div class="lib" id="lib"><div class="lib-in" id="libin"></div></div>
+<div class="app" id="ed" hidden>
+<header>
+  <button class="btn sm" id="tolib" type="button">&larr; My maps</button>
+  <h1>Map Editor</h1>
+  <input class="nameIn" id="mapname" aria-label="Map name" placeholder="Map name" maxlength="60">
+  <span class="savest" id="savest" role="status" aria-live="polite"></span>
+  <div class="hgrp"><button class="btn sm" id="signin" type="button" hidden>Sign in to save</button><button class="btn sm" id="sharebtn" type="button">Share</button><button class="btn sm" id="copybtn" type="button">Save a copy</button></div>
+</header>
+<div class="rob" id="rob" hidden></div>
+<div class="main" id="edmain">
+  <div class="mapwrap">
+    <svg id="map" role="img" aria-label="Map canvas"></svg>
+    <div class="tools" id="tools">
+      <button class="btn" data-t="station">Add station</button>
+      <button class="btn" data-t="addline">Add line</button>
+      <button class="btn" data-t="editline">Edit line</button>
+      <button class="btn" data-t="bg">Move image</button>
+    </div>
+    <div class="drawbar" id="drawbar" hidden></div>
+    <div class="zoom"><button class="btn" id="undo" aria-label="Undo" title="Undo (Ctrl+Z)"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button><button class="btn" id="redo" aria-label="Redo" title="Redo (Ctrl+Y)"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 14 5-5-5-5M20 9H10a6 6 0 0 0 0 12h3"/></svg></button><button class="btn" id="zi" aria-label="Zoom in">+</button><button class="btn" id="zo" aria-label="Zoom out">−</button><button class="btn" id="fit" style="width:auto;font-size:12px;padding:0 8px">Fit</button></div>
+    <div class="status"><div class="hint" id="hint"></div><div class="scale"><span id="coord"></span><span id="scl">1 km</span><i id="scb"></i></div></div>
+  </div>
+  <aside>
+    <div class="tabs" role="tablist" id="tabs">
+      <button role="tab" data-p="st" aria-selected="true">Stations</button>
+      <button role="tab" data-p="ln" aria-selected="false">Lines</button>
+      <button role="tab" data-p="ck" aria-selected="false" id="cktab">Check</button>
+      <button role="tab" data-p="mp" aria-selected="false">Map &amp; data</button>
+    </div>
+    <div class="pane" id="p-st"></div>
+    <div class="pane" id="p-ln" hidden></div>
+    <div class="pane" id="p-ck" hidden></div>
+    <div class="pane" id="p-mp" hidden></div>
+  </aside>
+</div>
+</div>
+<script>
+(function(){
+"use strict";
+var BUILTINS=/*__BUILTINS__*/{};
+var NS='http://www.w3.org/2000/svg',svg=document.getElementById('map');
+var KM=111.32,PALETTE=['#d32f2f','#1565c0','#2e7d32','#ef6c00','#6a1b9a','#00838f','#ad1457','#5d4037','#455a64','#9e9d24'];
+var CUR={id:null,owner:null,ownerName:'',share:'private',ro:false,dirty:false,nameEdited:false,from:null},dm='extend',tg={b:null,e:'end'},addId=null,segDrag=null,touched=false,S,hist=[],fut=[],tool='select',tab='st',selSt=null,selLn=null,vb=null,bg=null,hover=null,issuesCache=[];
+var $=function(id){return document.getElementById(id)};
+function esc(s){return String(s).replace(/[&<>"]/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]})}
+function mk(t,a,p){var e=document.createElementNS(NS,t);for(var k in a)e.setAttribute(k,a[k]);(p||svg).appendChild(e);return e}
+
+/* ---------- model ---------- */
+function blank(){return {name:'New map',lat0:45.5,lon0:-73.57,st:[],ln:[],sq:1,lq:1}}
+function example(){
+  var s=blank();s.name='Example City';
+  var P=[['Harbour',-73.62,45.47],['Old Town',-73.60,45.49],['Central',-73.57,45.50],['Market',-73.54,45.51],['Airport',-73.50,45.53],['University',-73.58,45.53],['Hillside',-73.59,45.56],['Riverside',-73.64,45.51],['Stadium',-73.53,45.47],['Junction',-73.60,45.51]];
+  P.forEach(function(p){s.st.push({id:'s'+s.sq++,name:p[0],lon:p[1],lat:p[2]})});
+  function id(n){return s.st.filter(function(x){return x.name===n})[0].id}
+  s.ln.push({id:'l'+s.lq++,name:'Red Line',color:'#d32f2f',rail:true,order:['Harbour','Old Town','Central','Market','Airport'].map(id)});
+  s.ln.push({id:'l'+s.lq++,name:'Blue Line',color:'#1565c0',rail:true,order:['Riverside','Junction','Central','Stadium'].map(id)});
+  s.ln.push({id:'l'+s.lq++,name:'Bus 12',color:'#2e7d32',rail:false,order:['Junction','University','Hillside'].map(id)});
+  return s}
+function fromData(d){
+  var s=blank();if(d.name)s.name=String(d.name).slice(0,60);
+  if(d.center&&isFinite(d.center.lat)&&isFinite(d.center.lon)){s.lat0=+d.center.lat;s.lon0=+d.center.lon}
+  var map={},regs=d.regions||[],lines=d.lines||[];
+  regs.forEach(function(r){var c=r.c||[];if(!isFinite(c[0])||!isFinite(c[1]))return;var id='s'+s.sq++;map[r.id]=id;s.st.push({id:id,name:String(r.name||r.id),lon:+c[0],lat:+c[1]})});
+  lines.forEach(function(l,i){s.ln.push({id:'l'+s.lq++,name:String(l.name||l.id),color:/^#[0-9a-f]{6}$/i.test(l.color||'')?l.color:PALETTE[i%PALETTE.length],rail:l.rail!==false,order:(l.order||[]).map(function(x){return map[x]}).filter(Boolean)});var nl=s.ln[s.ln.length-1];var brs=(l.branches||[]).map(function(b){return {id:(function(){s.bq=s.bq||1;return 'b'+s.bq++})(),order:((b&&b.order)||[]).map(function(x){return map[x]}).filter(Boolean)}}).filter(function(b){return b.order.length>=2});if(brs.length)nl.branches=brs});
+  if(!d.center&&s.st.length){var la=0,lo=0;s.st.forEach(function(x){la+=x.lat;lo+=x.lon});s.lat0=la/s.st.length;s.lon0=lo/s.st.length}
+  return s}
+function slug(n){var t=String(n).normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');return t||'x'}
+function uniq(base,used){var id=base,i=2;while(used[id])id=base+'-'+(i++);used[id]=1;return id}
+function toData(){
+  var used={},sid={};S.st.forEach(function(x){sid[x.id]=uniq(slug(x.name),used)});
+  var lu={},lid={};S.ln.forEach(function(l){lid[l.id]=uniq(slug(l.name),lu)});
+  var regs=S.st.map(function(x){return {id:sid[x.id],name:x.name,c:[+x.lon.toFixed(5),+x.lat.toFixed(5)],lines:S.ln.filter(function(l){return onLine(l,x.id)}).map(function(l){return lid[l.id]}),pt:1}});
+  var lines=S.ln.map(function(l){var o={id:lid[l.id],name:l.name,color:l.color,order:l.order.map(function(i){return sid[i]}),rail:l.rail};if(l.branches&&l.branches.length)o.branches=l.branches.map(function(b){return {order:b.order.map(function(i){return sid[i]})}});return o});
+  return {format:'rail-rush-map',version:1,name:S.name,center:{lat:+S.lat0.toFixed(5),lon:+S.lon0.toFixed(5)},regions:regs,lines:lines}}
+function stById(id){for(var i=0;i<S.st.length;i++)if(S.st[i].id===id)return S.st[i];return null}
+function lnById(id){for(var i=0;i<S.ln.length;i++)if(S.ln[i].id===id)return S.ln[i];return null}
+function runs(l){return [l.order].concat((l.branches||[]).map(function(b){return b.order}))}
+function onLine(l,sid){return runs(l).some(function(r){return r.indexOf(sid)>=0})}
+function linesOf(sid){return S.ln.filter(function(l){return onLine(l,sid)})}
+function newBranchId(){S.bq=S.bq||1;return 'b'+S.bq++}
+function brById(l,id){var bs=l&&l.branches||[];for(var i=0;i<bs.length;i++)if(bs[i].id===id)return bs[i];return null}
+/* the run (trunk or one branch) that Edit line is currently extending */
+function curRun(l){var b=tg.b&&brById(l,tg.b);return b?{order:b.order,br:b,front:false}:{order:l.order,br:null,front:tg.e==='start'}}
+function isTarget(l,b){return tool==='line'&&dm==='extend'&&selLn===l.id&&tg.b===b.id}
+function cleanBranches(){var ch=false;S.ln.forEach(function(l){if(!l.branches)return;var n=l.branches.length;l.branches=l.branches.filter(function(b){return b.order.length>=2||isTarget(l,b)});if(l.branches.length!==n)ch=true});if(ch)save();return ch}
+
+/* ---------- history + storage ---------- */
+function snap(){return JSON.stringify(S)}
+function save(){try{if(!CUR.id&&!CUR.ro)localStorage.setItem('tg-map-draft',snap())}catch(e){}scheduleCloud()}
+function push(pre){CUR.dirty=true;hist.push(pre||snap());if(hist.length>150)hist.shift();fut=[]}
+function building(l){return tool==='line'&&dm==='new'&&l.id===addId}
+function prune(){var gone=S.ln.filter(function(l){return l.order.length<2&&!building(l)});
+  if(cleanBranches())pruneMsg='A branch with no station beyond its fork was deleted.';
+  if(!gone.length)return false;S.ln=S.ln.filter(function(l){return gone.indexOf(l)<0});
+  if(selLn&&!lnById(selLn))selLn=null;if(addId&&!lnById(addId))addId=null;
+  pruneMsg=gone.length===1?'Line "'+gone[0].name+'" was deleted because it had only one station.':gone.length+' lines with only one station were deleted.';return true}
+var pruneMsg='';
+function dropBuilding(){var l=addId&&lnById(addId);if(l&&l.order.length<2){S.ln=S.ln.filter(function(x){return x!==l});if(selLn===l.id)selLn=null;save()}}
+/* Removing a station that joins a branch to the main line: ask which neighbouring station the branch should join instead. */
+function forkCases(sid,lineId){var out=[];S.ln.forEach(function(l){if(lineId&&l.id!==lineId)return;var i=l.order.indexOf(sid);if(i<0||l.order.length<=2)return;
+  (l.branches||[]).forEach(function(b){if(b.order[0]===sid)out.push({l:l,b:b,pv:i>0?l.order[i-1]:null,nx:i<l.order.length-1?l.order[i+1]:null})})});return out}
+function askFork(c,i,n,cb){
+  var sn=function(id){var s=stById(id);return s?s.name:'?'},prev=document.activeElement,second=c.b.order[1];
+  var ov=document.createElement('div');ov.className='modal';ov.setAttribute('role','dialog');ov.setAttribute('aria-modal','true');ov.setAttribute('aria-label','Reconnect branch');
+  ov.innerHTML='<div class="mbox"><h2>Reconnect a branch</h2><p>\u201c'+esc(sn(c.b.order[0]))+'\u201d is where a branch of \u201c'+esc(c.l.name)+'\u201d'+(second?' (towards \u201c'+esc(sn(second))+'\u201d)':'')+' joins the line. Which neighbouring station should the branch join instead?</p>'+(n>1?'<div class="mu">Branch '+(i+1)+' of '+n+'</div>':'')+
+    '<div class="mrow">'+(c.pv?'<button class="btn pri" data-v="p">Join at '+esc(sn(c.pv))+'</button>':'')+(c.nx?'<button class="btn pri" data-v="n">Join at '+esc(sn(c.nx))+'</button>':'')+'<button class="btn" data-v="d">Delete the branch</button><button class="btn" data-v="c">Cancel</button></div></div>';
+  function close(v){document.removeEventListener('keydown',esc2,true);ov.remove();try{prev&&prev.focus&&prev.focus()}catch(e){}cb(v==='p'?c.pv:v==='n'?c.nx:v==='d'?'del':null)}
+  function esc2(e){if(e.key==='Escape'){e.preventDefault();e.stopPropagation();close('c')}}
+  ov.addEventListener('click',function(e){var b=e.target.closest('[data-v]');if(b)close(b.dataset.v);else if(e.target===ov)close('c')});
+  document.addEventListener('keydown',esc2,true);document.body.appendChild(ov);var f=ov.querySelector('button');if(f)f.focus()}
+function doRemoval(sid,lineId,fn,after){
+  if(CUR.ro)return;
+  var cases=forkCases(sid,lineId),res=[];
+  function finish(){mut(function(){res.forEach(function(r){var b=r.c.b,l=r.c.l;
+      if(r.to==='del')l.branches=l.branches.filter(function(x){return x!==b});
+      else b.order=[r.to].concat(b.order.slice(1).filter(function(x){return x!==r.to}))});fn()});if(after)after()}
+  function next(i){if(i>=cases.length){finish();return}askFork(cases[i],i,cases.length,function(to){if(to===null)return;res.push({c:cases[i],to:to});next(i+1)})}
+  next(0)}
+function mut(fn){if(CUR.ro)return;push();fn();prune();afterChange();if(pruneMsg){hint(pruneMsg);pruneMsg=''}}
+function afterChange(){save();renderAll()}
+function undo(){if(!hist.length)return;fut.push(snap());S=JSON.parse(hist.pop());fixSel();afterChange()}
+function redo(){if(!fut.length)return;hist.push(snap());S=JSON.parse(fut.pop());fixSel();afterChange()}
+function fixSel(){if(selSt&&!stById(selSt))selSt=null;if(selLn&&!lnById(selLn))selLn=null}
+function load(s,keepHist){if(!keepHist)push();S=s;selSt=null;selLn=S.ln.length?S.ln[0].id:null;afterChange();fitStations()}
+
+/* ---------- projection ---------- */
+function ck(){return Math.cos(S.lat0*Math.PI/180)}
+function P(lon,lat){return [(lon-S.lon0)*ck()*KM,(S.lat0-lat)*KM]}
+function U(x,y){return [S.lon0+x/(ck()*KM),S.lat0-y/KM]}
+
+/* ---------- canvas ---------- */
+var gBg,gGrid,gLines,gNodes;
+function W(){return svg.clientWidth||400} function H(){return svg.clientHeight||400}
+function kpx(){return W()/vb.w}
+function renderCanvas(){
+  if(!vb)return;
+  svg.innerHTML='';
+  svg.setAttribute('viewBox',vb.x+' '+vb.y+' '+vb.w+' '+vb.h);
+  var k=kpx();
+  if(bg&&bg.url){var bh=bg.w*bg.ar;mk('image',{href:bg.url,x:bg.x-bg.w/2,y:bg.y-bh/2,width:bg.w,height:bh,preserveAspectRatio:'none',opacity:bg.op,'pointer-events':'none'})}
+  /* grid */
+  var steps=[0.1,0.2,0.5,1,2,5,10,20,50],g=1;for(var i=0;i<steps.length;i++){g=steps[i];if(g*k>=60)break}
+  for(var x=Math.ceil(vb.x/g)*g;x<vb.x+vb.w;x+=g)mk('line',{x1:x,y1:vb.y,x2:x,y2:vb.y+vb.h,stroke:'var(--grid)','stroke-width':1,'vector-effect':'non-scaling-stroke'});
+  for(var y=Math.ceil(vb.y/g)*g;y<vb.y+vb.h;y+=g)mk('line',{x1:vb.x,y1:y,x2:vb.x+vb.w,y2:y,stroke:'var(--grid)','stroke-width':1,'vector-effect':'non-scaling-stroke'});
+  /* lines: where several lines share a segment, draw them side by side */
+  var GAP=5/k,emap={};
+  S.ln.forEach(function(l,li){runs(l).forEach(function(r){for(var q=0;q<r.length-1;q++){var ky=segKey(r[q],r[q+1]);var ar=(emap[ky]=emap[ky]||[]);if(ar.indexOf(li)<0)ar.push(li)}})});
+  function segOff(li,a,b){var ls=emap[segKey(a,b)]||[li],n=ls.length,r=ls.indexOf(li);if(r<0)r=0;var off=(r-(n-1)/2)*GAP;
+    var A=stById(a),B=stById(b);if(!A||!B)return null;var pa=P(A.lon,A.lat),pb=P(B.lon,B.lat);
+    if(a>b){var tp=pa;pa=pb;pb=tp}   /* canonical direction so every line offsets to the same side */
+    var dx=pb[0]-pa[0],dy=pb[1]-pa[1],L=Math.hypot(dx,dy)||1;return [-dy/L*off,dx/L*off]}
+  var paths=[];
+  S.ln.forEach(function(l,li){runs(l).forEach(function(ro){var pts=[];
+    for(var q=0;q<ro.length;q++){var s=stById(ro[q]);if(!s)continue;var p=P(s.lon,s.lat);
+      var o1=q>0?segOff(li,ro[q-1],ro[q]):null,o2=q<ro.length-1?segOff(li,ro[q],ro[q+1]):null;
+      if(o1)pts.push([p[0]+o1[0],p[1]+o1[1]]);
+      if(o2&&(!o1||o1[0]!==o2[0]||o1[1]!==o2[1]))pts.push([p[0]+o2[0],p[1]+o2[1]]);
+      if(!o1&&!o2)pts.push(p)}
+    paths.push({l:l,s:pts.map(function(p){return p[0].toFixed(3)+','+p[1].toFixed(3)}).join(' ')})})});
+  paths.forEach(function(e){var l=e.l;mk('polyline',{points:e.s,fill:'none',stroke:'var(--map)','stroke-width':l.rail?9:7,'stroke-linejoin':'round','stroke-linecap':'round','vector-effect':'non-scaling-stroke','pointer-events':'none'})});
+  paths.forEach(function(e){var l=e.l,act=tool==='line'&&(dm==='new'?l.id===addId:selLn===l.id);
+    mk('polyline',{points:e.s,fill:'none',stroke:l.color,'stroke-width':l.rail?5:3.5,'stroke-dasharray':l.rail?'none':'8 5','stroke-linejoin':'round','stroke-linecap':'round','vector-effect':'non-scaling-stroke',opacity:act||tool!=='line'?1:.45,'pointer-events':'none'})});
+  /* nodes */
+  var ln=selLn&&lnById(selLn),onAct={};if(tool==='line'&&ln)runs(ln).forEach(function(r){r.forEach(function(i){onAct[i]=1})});
+  S.st.forEach(function(s){
+    var p=P(s.lon,s.lat),n=linesOf(s.id).length,r=(n>1?7:5.5)/k,sel=s.id===selSt;
+    var g2=mk('g',{'data-sid':s.id,style:'cursor:'+(tool==='select'?'grab':'pointer')});
+    mk('circle',{cx:p[0],cy:p[1],r:Math.max(r,14/k),fill:'transparent','data-sid':s.id},g2);
+    if(sel)mk('circle',{cx:p[0],cy:p[1],r:r+5/k,fill:'none',stroke:'var(--accent)','stroke-width':3,'vector-effect':'non-scaling-stroke','pointer-events':'none'},g2);
+    mk('circle',{cx:p[0],cy:p[1],r:r,fill:n?'var(--node)':'var(--warn)',stroke:'var(--nodeline)','stroke-width':2,'vector-effect':'non-scaling-stroke','pointer-events':'none'},g2);
+    var show=sel||s.id===hover||onAct[s.id]||(n>1&&k>=10)||k>=32;
+    if(show){var t=mk('text',{x:p[0]+r+4/k,y:p[1]+4/k,'font-family':'Barlow Condensed, Arial Narrow, sans-serif','font-weight':700,'font-size':13/k,fill:'var(--ink)','paint-order':'stroke',stroke:'var(--map)','stroke-width':3.5/k,'stroke-linejoin':'round','pointer-events':'none'},g2);t.textContent=s.name}
+  });
+  /* segment handles (Edit line) and drag preview */
+  if(tool==='line'&&dm==='extend'&&ln){
+    var li0=S.ln.indexOf(ln),hr=[{id:'',o:ln.order}].concat((ln.branches||[]).map(function(b){return {id:b.id,o:b.order}}));
+    hr.forEach(function(run){for(var q=0;q<run.o.length-1;q++){var a=stById(run.o[q]),b2=stById(run.o[q+1]);if(!a||!b2)continue;
+      var pa=P(a.lon,a.lat),pb=P(b2.lon,b2.lat),so=segOff(li0,run.o[q],run.o[q+1])||[0,0],mx=(pa[0]+pb[0])/2+so[0],my=(pa[1]+pb[1])/2+so[1],key=run.id+':'+q,hg=mk('g',{'data-seg':key,style:'cursor:grab'});
+      mk('circle',{cx:mx,cy:my,r:14/k,fill:'transparent','data-seg':key},hg);
+      mk('circle',{cx:mx,cy:my,r:5/k,fill:'var(--map)',stroke:ln.color,'stroke-width':2.5,'vector-effect':'non-scaling-stroke','pointer-events':'none'},hg)}})}
+  if(segDrag&&segDrag.cur){var sl=lnById(segDrag.lid),sro=sl&&(segDrag.rid?(brById(sl,segDrag.rid)||{}).order:sl.order)||[],sa=sl&&stById(sro[segDrag.i]),sb=sl&&stById(sro[segDrag.i+1]);
+    if(sa&&sb){var qa=P(sa.lon,sa.lat),qb=P(sb.lon,sb.lat),tg=segDrag.over&&stById(segDrag.over),pc=tg?P(tg.lon,tg.lat):segDrag.cur;
+      mk('polyline',{points:qa[0]+','+qa[1]+' '+pc[0]+','+pc[1]+' '+qb[0]+','+qb[1],fill:'none',stroke:sl.color,'stroke-width':3,'stroke-dasharray':'3 4','vector-effect':'non-scaling-stroke','pointer-events':'none'});
+      if(tg)mk('circle',{cx:pc[0],cy:pc[1],r:11/k,fill:'none',stroke:'var(--accent)','stroke-width':3,'vector-effect':'non-scaling-stroke','pointer-events':'none'});
+      else mk('circle',{cx:pc[0],cy:pc[1],r:5/k,fill:sl.color,'pointer-events':'none'})}}
+  /* scale bar */
+  var nice=[0.1,0.2,0.5,1,2,5,10,20,50],km=1;for(var j=0;j<nice.length;j++){km=nice[j];if(km*k>=70)break}
+  $('scb').style.width=(km*k)+'px';$('scl').textContent=km+' km';
+}
+function segKey(a,b){return a<b?a+'|'+b:b+'|'+a}
+function bbox(pts,pad){var xs=pts.map(function(p){return p[0]}),ys=pts.map(function(p){return p[1]});return {x0:Math.min.apply(0,xs)-pad,x1:Math.max.apply(0,xs)+pad,y0:Math.min.apply(0,ys)-pad,y1:Math.max.apply(0,ys)+pad}}
+function fitBox(b){var w=Math.max(b.x1-b.x0,2),h=w*H()/W();if(h<b.y1-b.y0){h=b.y1-b.y0;w=h*W()/H()}vb={x:(b.x0+b.x1)/2-w/2,y:(b.y0+b.y1)/2-h/2,w:w,h:h};renderCanvas()}
+function fitStations(){
+  if(!S.st.length){fitBox({x0:-8,x1:8,y0:-6,y1:6});return}
+  fitBox(bbox(S.st.map(function(s){return P(s.lon,s.lat)}),Math.max(1.2,0))) }
+function zoom(f,px,py){var r=svg.getBoundingClientRect(),fx=(px-r.left)/r.width,fy=(py-r.top)/r.height,w=Math.min(Math.max(vb.w*f,0.4),400),h=w*vb.h/vb.w;
+  vb={x:vb.x+(vb.w-w)*fx,y:vb.y+(vb.h-h)*fy,w:w,h:h};renderCanvas()}
+function toKm(e){var r=svg.getBoundingClientRect();return [vb.x+(e.clientX-r.left)/r.width*vb.w,vb.y+(e.clientY-r.top)/r.height*vb.h]}
+
+/* ---------- editing actions ---------- */
+function newStation(lon,lat){var s={id:'s'+S.sq,name:'Station '+S.sq,lon:lon,lat:lat};S.sq++;S.st.push(s);return s}
+function addToLine(l,sid,front){if(l.order.indexOf(sid)>=0)return false;if(front)l.order.unshift(sid);else l.order.push(sid);return true}
+function newLine(){var l={id:'l'+S.lq,name:'Line '+S.lq,color:PALETTE[(S.lq-1)%PALETTE.length],rail:true,order:[]};S.lq++;S.ln.push(l);return l}
+function removeStation(id){S.st=S.st.filter(function(s){return s.id!==id});S.ln.forEach(function(l){l.order=l.order.filter(function(x){return x!==id});(l.branches||[]).forEach(function(b){b.order=b.order.filter(function(x){return x!==id})})})}
+
+/* pointer handling */
+var ptr={},np=0,pinch=0,gesture=null;
+svg.addEventListener('pointerdown',function(e){touched=true;
+  ptr[e.pointerId]=[e.clientX,e.clientY];np=Object.keys(ptr).length;try{svg.setPointerCapture(e.pointerId)}catch(x){}
+  if(np>1){gesture={kind:'pinch'};pinch=0;return}
+  var hs=e.target.closest&&e.target.closest('[data-seg]');
+  if(hs&&tool==='line'&&dm==='extend'&&selLn){gesture={kind:'seg',sx:e.clientX,sy:e.clientY,moved:0,sid:null,pre:null,start:toKm(e)};var sk=hs.getAttribute('data-seg').split(':');segDrag={lid:selLn,rid:sk[0],i:+sk[1],cur:null,over:null};return}
+  var t=e.target.closest&&e.target.closest('[data-sid]'),sid=t?t.getAttribute('data-sid'):null;
+  gesture={kind:'pan',sx:e.clientX,sy:e.clientY,moved:0,sid:sid,pre:null,start:toKm(e)};
+  if(sid&&!CUR.ro&&(tool==='select'||tool==='station'||(tool==='line'&&dm==='extend'&&(function(){var el=lnById(selLn);return el&&onLine(el,sid)})()))){gesture.kind='drag';selSt=sid;gesture.pre=snap();renderAll()}
+  else if(tool==='bg'&&bg){gesture.kind='bgmove';gesture.pre=null}
+});
+svg.addEventListener('pointermove',function(e){
+  var km=toKm(e),ll=U(km[0],km[1]);$('coord').textContent=ll[1].toFixed(4)+', '+ll[0].toFixed(4);
+  var h=e.target.closest&&e.target.closest('[data-sid]'),hid=h?h.getAttribute('data-sid'):null;
+  if(hid!==hover&&!gesture){hover=hid;renderCanvas()}
+  if(!ptr[e.pointerId]||!gesture)return;var o=ptr[e.pointerId],n=[e.clientX,e.clientY];
+  if(gesture.kind==='pinch'){ptr[e.pointerId]=n;var ks=Object.keys(ptr);if(ks.length<2)return;var a=ptr[ks[0]],b=ptr[ks[1]],d=Math.hypot(a[0]-b[0],a[1]-b[1]);if(pinch)zoom(pinch/d,(a[0]+b[0])/2,(a[1]+b[1])/2);pinch=d;return}
+  var dx=n[0]-o[0],dy=n[1]-o[1];gesture.moved+=Math.abs(dx)+Math.abs(dy);ptr[e.pointerId]=n;
+  var k=kpx();
+  if(gesture.kind==='seg'){if(gesture.moved>4&&segDrag){segDrag.cur=km;segDrag.over=stationNear(km);renderCanvas()}return}
+  if(gesture.kind==='drag'&&gesture.moved>4){
+    if(gesture.pre){push(gesture.pre);gesture.pre=null}
+    var s=stById(gesture.sid);if(s){var ll2=U(km[0],km[1]);s.lon=ll2[0];s.lat=ll2[1];renderCanvas();renderStationInspectorValues()}
+  }else if(gesture.kind==='bgmove'){bg.x+=dx/k;bg.y+=dy/k;renderCanvas()}
+  else if(gesture.kind==='pan'){vb.x-=dx/k;vb.y-=dy/k;renderCanvas()}
+});
+function stationNear(km){var k=kpx(),best=null,bd=16/k;S.st.forEach(function(s){var p=P(s.lon,s.lat),d=Math.hypot(p[0]-km[0],p[1]-km[1]);if(d<bd){bd=d;best=s.id}});return best}
+function release(e){
+  var g=gesture;delete ptr[e.pointerId];np=Object.keys(ptr).length;
+  if(np===0){gesture=null;pinch=0}
+  if(g&&g.kind==='seg'){var sd=segDrag;segDrag=null;
+    if(sd&&sd.over){var sl=lnById(sd.lid),rn=sl&&(sd.rid?(brById(sl,sd.rid)||{}).order:sl.order);
+      if(rn&&rn.indexOf(sd.over)>=0)hint('That station is already on this part of "'+sl.name+'".');
+      else if(rn){var at=sd.i+1,sn=sd.over;mut(function(){rn.splice(at,0,sn);selSt=sn});hint('Inserted into "'+sl.name+'" at position '+(at+1)+'.');return}}
+    renderCanvas();return}
+  if(!g||g.kind==='pinch'||g.moved>4){if(g&&g.kind==='drag'&&g.moved>4){save();renderAll()}return}
+  /* a click (no real movement) */
+  var km=g.start;
+  if(g.sid){
+    if(tool==='line'){drawClick(g.sid,null)}
+    else{selSt=g.sid;renderAll()}
+  }else if(tool==='station'){mut(function(){var ll=U(km[0],km[1]),s=newStation(ll[0],ll[1]);selSt=s.id});tab='st';renderAll();focusName()}
+  else if(tool==='line'){drawClick(null,km)
+  }else if(tool==='select'){selSt=null;renderAll()}
+}
+svg.addEventListener('pointerup',release);svg.addEventListener('pointercancel',release);
+svg.addEventListener('pointerleave',function(){if(hover){hover=null;renderCanvas()}});
+svg.addEventListener('wheel',function(e){touched=true;e.preventDefault();zoom(e.deltaY>0?1.2:1/1.2,e.clientX,e.clientY)},{passive:false});
+/* Draw line: "extend" adds stations to one end of the chosen line; "new" starts a fresh line at the first click, then switches to extending it. */
+function drawClick(sid,km){
+  var l,front=false;
+  if(dm==='new'){l=addId?lnById(addId):null;if(!l)addId=null}
+  else{l=lnById(selLn);var cr0=l&&curRun(l);front=!!(cr0&&cr0.front);
+    if(!l){hint('Choose a line to edit in the bar above, or use "Add line" to create one.');return}}
+  if(dm==='extend'&&l&&sid){var cr=curRun(l);
+    if(cr.order.indexOf(sid)>=0){
+      if(cr.br&&cr.order[0]===sid){selSt=sid;renderAll();hint('That is the fork station; it stays on the main line. Pick another station to remove.');return}
+      var rl=l,nm=(stById(sid)||{}).name,fin=function(){if(lnById(rl.id))hint('Removed '+nm+' from '+(cr.br?'the branch':'"'+rl.name+'"')+'. (Undo brings it back.)')};
+      var rmf=function(){cr.order.splice(cr.order.indexOf(sid),1);selSt=sid};
+      if(cr.br){mut(rmf);fin()}else doRemoval(sid,rl.id,rmf,fin);
+      if(false)hint('Removed '+nm+' from '+(cr.br?'the branch':'"'+rl.name+'"')+'. (Undo brings it back.)');return}}
+  if(dm==='new'&&l&&sid&&l.order.indexOf(sid)>=0){
+    var rl2=l,nm2=(stById(sid)||{}).name;mut(function(){rl2.order=rl2.order.filter(function(x){return x!==sid});selSt=sid;if(!rl2.order.length){S.ln=S.ln.filter(function(x){return x!==rl2});addId=null;if(selLn===rl2.id)selLn=null}});
+    hint(lnById(rl2.id)?'Removed '+nm2+' from "'+rl2.name+'". (Undo brings it back.)':'Removed '+nm2+'; the new line was empty so it was discarded.');return}
+  var made=null;
+  mut(function(){
+    var id=sid;if(!id){var ll=U(km[0],km[1]);id=newStation(ll[0],ll[1]).id}
+    if(!l){l=newLine();made=l;addId=l.id;selLn=l.id;l.order.push(id)}
+    else{var tr=dm==='new'?l.order:curRun(l).order;if(tr.indexOf(id)<0){if(front)tr.unshift(id);else tr.push(id)}}
+    selSt=id});
+  if(made)hint('Started "'+made.name+'". Keep clicking stations in order to build it; press Done when finished.');
+}
+function setSvgTop(v){var r0=svg.getBoundingClientRect();svg.style.top=v;svg.style.height=v?'calc(100% - '+v+')':'';var r1=svg.getBoundingClientRect();
+  if(vb&&r1.width&&r0.height&&(r1.top!==r0.top||r1.height!==r0.height)){var k=vb.w/r1.width;vb={x:vb.x,y:vb.y+(r1.top-r0.top)*k,w:vb.w,h:r1.height*k}}
+  if(!touched&&vb)fitStations()}
+function drawBarRender(){
+  var b=$('drawbar');if(tool!=='line'){b.hidden=true;b.innerHTML='';setSvgTop('');return}
+  b.hidden=false;var tl=$('tools');b.style.top=(tl.offsetTop+tl.offsetHeight+8)+'px';
+  if(dm==='new'){var al=addId&&lnById(addId);
+    b.innerHTML='<span class="mu">'+(al?'Adding <b>'+esc(al.name)+'</b> ('+al.order.length+' station'+(al.order.length===1?'':'s')+')':'Click a station, or empty space, to begin a new line.')+'</span>'+
+      (al?'<button class="btn sm" data-d="another">Start another line</button>':'')+'<button class="btn sm" data-d="done">Done</button>'}
+  else{
+    b.innerHTML='<select id="d-line" aria-label="Line to edit">'+(S.ln.length?'':'<option value="">(no lines yet)</option>')+S.ln.map(function(x){return '<option value="'+x.id+'"'+(x.id===selLn?' selected':'')+'>'+esc(x.name)+'</option>'}).join('')+'</select>'+
+      (function(){var el=lnById(selLn);if(!el||!el.order.length)return '';var fs=stById(el.order[0]),ls=stById(el.order[el.order.length-1]),o='',cr=curRun(el);
+        o+='<button class="btn sm xf'+(!cr.br&&tg.e==='start'?' on':'')+'" data-d="start" title="Clicks add stations before the first one">Extend from '+esc(fs?fs.name:'?')+'</button>';
+        o+='<button class="btn sm xf'+(!cr.br&&tg.e==='end'?' on':'')+'" data-d="end" title="Clicks add stations after the last one">Extend from '+esc(ls?ls.name:'?')+'</button>';
+        (el.branches||[]).forEach(function(b){var bl=stById(b.order[b.order.length-1]);o+='<button class="btn sm xf'+(cr.br===b?' on':'')+'" data-d="br:'+b.id+'" title="Branch: clicks add stations after its last one">Extend from '+esc(bl?bl.name:'?')+' (branch)</button>'});
+        var ss=selSt&&stById(selSt);if(ss&&el.order.indexOf(selSt)>=0)o+='<button class="btn sm xf" data-d="fork" title="Start a branch of this line at the selected station">Branch from '+esc(ss.name)+'</button>';
+        if(cr.br)o+='<button class="btn sm" data-d="delbr" title="Delete the branch being extended">Delete branch</button>';
+        return o})()+
+      (lnById(selLn)?'<input type="color" id="d-color" value="'+esc(lnById(selLn).color)+'" aria-label="Line colour" title="Line colour">':'')+
+      '<button class="btn sm" data-d="done">Done</button>';
+    $('d-line').disabled=!S.ln.length;
+    $('d-line').onchange=function(){selLn=this.value||null;tg={b:null,e:'end'};cleanBranches();renderAll()}
+    var dc=$('d-color');if(dc){var cl=lnById(selLn);
+      dc.onfocus=function(){dc._pre=snap()};
+      dc.oninput=function(){cl.color=dc.value;save();renderCanvas()};
+      dc.onchange=function(){if(dc._pre&&dc._pre!==snap())push(dc._pre);lite();if(tab==='ln')renderLines()}}}
+  setSvgTop((b.offsetTop+b.offsetHeight+6)+'px');
+}
+$('drawbar').addEventListener('click',function(e){var b=e.target.closest('[data-d]');if(!b)return;var d=b.dataset.d;
+  if(d==='another'){dropBuilding();addId=null;selSt=null}
+  else if(d==='end'||d==='start'){tg={b:null,e:d}}
+  else if(d.slice(0,3)==='br:'){tg={b:d.slice(3),e:'end'}}
+  else if(d==='fork'){var fl=lnById(selLn),fs0=selSt;if(fl&&fs0&&fl.order.indexOf(fs0)>=0){mut(function(){var nb={id:newBranchId(),order:[fs0]};(fl.branches=fl.branches||[]).push(nb);tg={b:nb.id,e:'end'}});hint('New branch from '+(stById(fs0)||{}).name+': click stations in order to build it.')}}
+  else if(d==='delbr'){var dl=lnById(selLn),db=dl&&brById(dl,tg.b);if(db){mut(function(){dl.branches=dl.branches.filter(function(x){return x!==db});tg={b:null,e:'end'}})}}
+  else if(d==='done'){setTool('select');return}
+  setTool('line')});
+function mid(){var r=svg.getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2]}
+$('zi').onclick=function(){touched=true;var m=mid();zoom(1/1.5,m[0],m[1])};
+$('zo').onclick=function(){touched=true;var m=mid();zoom(1.5,m[0],m[1])};
+$('fit').onclick=fitStations;
+$('undo').onclick=undo;$('redo').onclick=redo;
+document.addEventListener('keydown',function(e){
+  if(document.querySelector('.modal'))return;var t=e.target&&e.target.tagName;if(t==='INPUT'||t==='TEXTAREA'||t==='SELECT')return;
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?redo():undo()}
+  else if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();redo()}
+  else if((e.key==='Delete'||e.key==='Backspace')&&selSt&&!CUR.ro){e.preventDefault();var id=selSt;doRemoval(id,null,function(){removeStation(id);selSt=null})}
+  else if(e.key==='Escape'){selSt=null;renderAll()}
+});
+
+/* ---------- tools + hint ---------- */
+var HINTS={select:'Click a station to select it; drag it to move it. Drag empty space to pan; scroll or pinch to zoom.',
+ station:'Click empty space to add a station. Drag an existing station to move it.',
+ line:'',
+ bg:'Drag to move the background image. Set its size and opacity in the Map & data tab.'};
+function hint(t){$('hint').textContent=t||HINTS[tool]||''}
+function toolKey(){return tool==='line'?(dm==='new'?'addline':'editline'):tool}
+function setTool(t){if(t!=='line'||dm!=='new')dropBuilding();tool=t;cleanBranches();if(t!=='line'){addId=null;segDrag=null}
+  [].forEach.call($('tools').children,function(b){b.classList.toggle('on',b.dataset.t===toolKey())});
+  if(t==='line'&&dm==='extend'&&!selLn&&S.ln.length)selLn=S.ln[0].id;
+  var l=lnById(selLn);
+  if(t==='line')hint(dm==='new'?(addId?'Click stations in order to extend the new line, or empty space to create one. Press Done when finished.':'Adding a line: click a station, or empty space to create one, to begin it.'):l?'Editing "'+l.name+'": click a station on the line to remove it, click others to extend '+(curRun(l).br?'the branch':'from its '+(tg.e==='start'?'first':'last')+' station')+'. Select a station on the line and press "Branch from" to start a branch. Drag stations to move them, or drag a segment’s middle handle onto a station to insert it there.':'Choose a line to edit, or use "Add line".');
+  else hint(HINTS[t]);
+  drawBarRender();renderCanvas();if(tab==='ln')renderLines()}
+$('tools').addEventListener('click',function(e){var b=e.target.closest('[data-t]');if(b){var tt=b.dataset.t;if(tt===toolKey()){setTool('select');renderAll();return}
+    if(tt==='bg'&&!bg){tab='mp';renderAll();hint('Load a background image first (Map & data tab).');return}
+    if(tt==='addline'){dropBuilding();dm='new';addId=null;tt='line'}else if(tt==='editline'){dropBuilding();dm='extend';tt='line'}
+    setTool(tt);renderAll()}});
+
+/* ---------- panel: tabs ---------- */
+$('tabs').addEventListener('click',function(e){var b=e.target.closest('[data-p]');if(!b)return;tab=b.dataset.p;showTab()});
+function showTab(){[].forEach.call($('tabs').children,function(b){b.setAttribute('aria-selected',String(b.dataset.p===tab))});
+  ['st','ln','ck','mp'].forEach(function(p){$('p-'+p).hidden=p!==tab});renderPanel()}
+function renderPanel(){({st:renderStations,ln:renderLines,ck:renderCheck,mp:renderMap})[tab]();applyRO()}
+/* view-only mode (someone else's shared map): every editing control in the side panel is disabled */
+function applyRO(){if(!CUR.ro)return;[].forEach.call(document.querySelectorAll('#p-st input,#p-st button,#p-ln input,#p-ln button,#p-mp input,#p-mp textarea,#p-mp button'),function(el){
+  if(el.closest('#st-list')||el.id==='st-q'||el.id==='ex'||el.id==='ex-copy')return;el.disabled=true})}
+function lite(){issuesCache=validate();var n=issuesCache.length;$('cktab').textContent='Check'+(n?' ('+n+')':'');$('undo').disabled=!hist.length;$('redo').disabled=!fut.length;renderCanvas();if(tab==='st')fillStationList();if(tab==='ck')renderCheck()}
+function renderAll(){issuesCache=validate();drawBarRender();var n=issuesCache.length;$('cktab').textContent='Check'+(n?' ('+n+')':'');
+  $('undo').disabled=!hist.length;$('redo').disabled=!fut.length;
+  if($('mapname')!==document.activeElement)$('mapname').value=S.name;
+  renderCanvas();renderPanel()}
+$('mapname').oninput=function(){if(CUR.ro)return;S.name=this.value;CUR.nameEdited=true;save()};
+$('mapname').onfocus=function(){this._pre=snap()};
+$('mapname').onchange=function(){if(this._pre&&this._pre!==snap())push(this._pre);lite()};
+
+/* text inputs: live update without rebuilding the panel; one undo step per edit */
+function bind(el,get,set,after){
+  el.value=get();var pre=null;
+  el.onfocus=function(){pre=snap()};
+  el.oninput=function(){set(el.value);save();lite();if(after)after()};
+  el.onchange=function(){if(pre&&pre!==snap())push(pre);pre=null;lite()}}
+
+/* ---------- Stations tab ---------- */
+var stFilter='';
+function renderStations(){
+  var p=$('p-st'),s=stById(selSt),h='';
+  h+='<h2>Selected station</h2>';
+  if(s){
+    var ls=linesOf(s.id);
+    h+='<div class="card"><label class="f">Name<input id="s-name" maxlength="60"></label>'+
+      '<div class="row"><label class="f" style="flex:1">Latitude<input id="s-lat" inputmode="decimal"></label><label class="f" style="flex:1">Longitude<input id="s-lon" inputmode="decimal"></label></div>'+
+      '<div class="mu">On lines:</div>'+(ls.length?ls.map(function(l){var i=l.order.indexOf(s.id),role=l.order.length>1?(i===0?' (first)':i===l.order.length-1?' (last)':''):'';return '<div class="ord"><i class="dot" style="background:'+esc(l.color)+'"></i><span>'+esc(l.name)+role+'</span><button class="btn sm" data-rm="'+l.id+'" aria-label="Remove from '+esc(l.name)+'">Remove</button></div>'}).join(''):'<span class="mu">Not on any line yet.</span>')+
+      '<div class="row"><button class="btn sm" id="s-add" '+(selLn&&lnById(selLn)&&!onLine(lnById(selLn),s.id)?'':'disabled')+'>Add to '+esc(selLn&&lnById(selLn)?lnById(selLn).name:'line')+'</button><button class="btn sm" id="s-del" style="margin-left:auto">Delete station</button></div></div>';
+  }else h+='<div class="mu">Nothing selected. Pick a station on the map or in the list below.</div>';
+  h+='<h2>All stations ('+S.st.length+')</h2><input class="search" id="st-q" placeholder="Search stations" aria-label="Search stations"><ul class="list" id="st-list"></ul>';
+  p.innerHTML=h;
+  if(s){
+    bind($('s-name'),function(){return s.name},function(v){s.name=v},fillStationList);
+    bind($('s-lat'),function(){return s.lat.toFixed(5)},function(v){var n=parseFloat(v);if(isFinite(n)&&Math.abs(n)<=90)s.lat=n});
+    bind($('s-lon'),function(){return s.lon.toFixed(5)},function(v){var n=parseFloat(v);if(isFinite(n)&&Math.abs(n)<=180)s.lon=n});
+    [].forEach.call(p.querySelectorAll('[data-rm]'),function(b){b.onclick=function(){var l=lnById(b.dataset.rm);if(l)doRemoval(s.id,l.id,function(){l.order=l.order.filter(function(x){return x!==s.id});(l.branches||[]).forEach(function(b){b.order=b.order.filter(function(x){return x!==s.id})})})}});
+    $('s-add').onclick=function(){var l=lnById(selLn);if(l)mut(function(){addToLine(l,s.id)})};
+    $('s-del').onclick=function(){doRemoval(s.id,null,function(){removeStation(s.id);selSt=null})};
+  }
+  $('st-q').value=stFilter;$('st-q').oninput=function(){stFilter=this.value;fillStationList()};
+  fillStationList();
+}
+function renderStationInspectorValues(){var s=stById(selSt);if(!s||tab!=='st')return;var a=$('s-lat'),b=$('s-lon');if(a&&a!==document.activeElement)a.value=s.lat.toFixed(5);if(b&&b!==document.activeElement)b.value=s.lon.toFixed(5)}
+function fillStationList(){
+  var q=stFilter.trim().toLowerCase(),el=$('st-list');if(!el)return;
+  var l=S.st.filter(function(s){return !q||s.name.toLowerCase().indexOf(q)>=0}).sort(function(a,b){return a.name.localeCompare(b.name)});
+  el.innerHTML=l.length?l.map(function(s){var ls=linesOf(s.id);return '<li><button class="item" data-s="'+s.id+'" aria-pressed="'+(s.id===selSt)+'"><b>'+esc(s.name||'(unnamed)')+'</b>'+ls.slice(0,5).map(function(x){return '<i class="dot" style="background:'+esc(x.color)+'"></i>'}).join('')+'</button></li>'}).join(''):'<li class="mu">No stations'+(q?' match':' yet. Use "Add station" on the canvas.')+'</li>';
+  el.onclick=function(e){var b=e.target.closest('[data-s]');if(!b)return;selSt=b.dataset.s;var s=stById(selSt),p=P(s.lon,s.lat);
+    if(p[0]<vb.x||p[0]>vb.x+vb.w||p[1]<vb.y||p[1]>vb.y+vb.h){vb.x=p[0]-vb.w/2;vb.y=p[1]-vb.h/2}renderAll()}}
+function focusName(){setTimeout(function(){var n=$('s-name');if(n&&tab==='st'){n.focus();n.select()}},30)}
+
+/* ---------- Lines tab ---------- */
+function renderLines(){
+  var p=$('p-ln'),h='<div class="row"><h2 style="flex:1">Lines ('+S.ln.length+')</h2><button class="btn sm pri" id="l-new">Add line</button></div>';
+  if(!S.ln.length)h+='<div class="mu">No lines yet. Press "Add line", then click stations on the map to build it.</div>';
+  S.ln.forEach(function(l){
+    var open=l.id===selLn;
+    h+='<div class="card" data-l="'+l.id+'"><div class="row"><input type="color" data-k="color" value="'+esc(l.color)+'" aria-label="Colour"><input class="nameIn" style="flex:1;max-width:none" data-k="name" maxlength="60" aria-label="Line name"></div>'+
+      '<div class="row"><label class="row" style="gap:5px"><input type="checkbox" data-k="rail"'+(l.rail?' checked':'')+'> Rail (solid)</label><span class="mu">'+(l.rail?'':'bus (dashed)')+'</span>'+
+      '<button class="btn sm'+(tool==='line'&&dm==='extend'&&selLn===l.id?' on':'')+'" data-a="draw" style="margin-left:auto">'+(tool==='line'&&dm==='extend'&&selLn===l.id?'Editing…':'Edit')+'</button><button class="btn sm" data-a="del">Delete</button></div>'+
+      '<div class="mu">'+l.order.length+' station'+(l.order.length===1?'':'s')+((l.branches||[]).length?' + '+l.branches.length+' branch'+(l.branches.length===1?'':'es'):'')+' · <a href="#" data-a="toggle" style="color:var(--accent)">'+(open?'hide':'show')+' order</a></div>'+
+      (open?'<div>'+(l.order.length?l.order.map(function(id,i){var s=stById(id);return '<div class="ord" data-i="'+i+'"><span>'+(i+1)+'. '+esc(s?s.name:'?')+'</span><button class="btn sm" data-a="up" '+(i?'':'disabled')+' aria-label="Move earlier">↑</button><button class="btn sm" data-a="dn" '+(i<l.order.length-1?'':'disabled')+' aria-label="Move later">↓</button><button class="btn sm" data-a="rm" aria-label="Remove from line">✕</button></div>'}).join(''):'<div class="mu">Empty.</div>')+(l.branches||[]).map(function(b){var fk=stById(b.order[0]);return '<div class="mu" style="margin-top:6px">Branch from '+esc(fk?fk.name:'?')+'</div>'+b.order.map(function(id,j){var s=stById(id);return '<div class="ord" data-bid="'+b.id+'" data-j="'+j+'"><span>'+(j?j+'. ':'• ')+esc(s?s.name:'?')+(j?'':' (fork)')+'</span>'+(j?'<button class="btn sm" data-a="brrm" aria-label="Remove from branch">✕</button>':'')+'</div>'}).join('')+'<div><button class="btn sm" data-a="brdel" data-b="'+b.id+'">Delete this branch</button></div>'}).join('')+'</div>':'')+'</div>'});
+  p.innerHTML=h;
+  [].forEach.call(p.querySelectorAll('[data-l]'),function(card){
+    var l=lnById(card.dataset.l);
+    bind(card.querySelector('[data-k=name]'),function(){return l.name},function(v){l.name=v});
+    var c=card.querySelector('[data-k=color]');c.onfocus=function(){c._pre=snap()};c.oninput=function(){l.color=c.value;save();renderCanvas()};c.onchange=function(){if(c._pre&&c._pre!==snap())push(c._pre);lite()};
+    card.querySelector('[data-k=rail]').onchange=function(){var v=this.checked;mut(function(){l.rail=v})};
+  });
+  $('l-new').onclick=function(){dropBuilding();dm='new';addId=null;setTool('line');renderAll()};
+}
+$('p-ln').addEventListener('click',function(e){
+  var b=e.target.closest('[data-a]');if(!b)return;e.preventDefault();
+  var card=b.closest('[data-l]'),l=lnById(card.dataset.l),a=b.dataset.a,row=b.closest('[data-i]'),i=row?+row.dataset.i:-1;
+  if(a==='brrm'){var br0=brById(l,b.closest('[data-bid]').dataset.bid),j0=+b.closest('[data-bid]').dataset.j;if(br0)mut(function(){br0.order.splice(j0,1)})}
+  else if(a==='brdel'){var br1=brById(l,b.dataset.b);if(br1)mut(function(){l.branches=l.branches.filter(function(x){return x!==br1})})}
+  else if(a==='toggle'){selLn=selLn===l.id?null:l.id;renderAll()}
+  else if(a==='draw'){dropBuilding();selLn=l.id;dm='extend';tg={b:null,e:'end'};setTool('line');renderAll()}
+  else if(a==='del'){mut(function(){S.ln=S.ln.filter(function(x){return x!==l});if(selLn===l.id)selLn=null})}
+  else if(a==='up'&&i>0){mut(function(){var t=l.order[i];l.order[i]=l.order[i-1];l.order[i-1]=t})}
+  else if(a==='dn'&&i<l.order.length-1){mut(function(){var t=l.order[i];l.order[i]=l.order[i+1];l.order[i+1]=t})}
+  else if(a==='rm'){var rsid=l.order[i];doRemoval(rsid,l.id,function(){var k=l.order.indexOf(rsid);if(k>=0)l.order.splice(k,1)})}
+});
+
+/* ---------- Check tab ---------- */
+function validate(){
+  var out=[],names={};
+  S.st.forEach(function(s){
+    var n=s.name.trim().toLowerCase();
+    if(!n)out.push({lv:'e',t:'A station has no name.',sid:s.id});
+    else{(names[n]=names[n]||[]).push(s)}
+  });
+  Object.keys(names).forEach(function(n){if(names[n].length>1)out.push({lv:'e',t:'Duplicate station name "'+names[n][0].name+'" ('+names[n].length+' stations). Challenges are matched by name, so names must be unique.',sid:names[n][0].id})});
+  S.ln.forEach(function(l){
+    if(l.order.length<2)out.push({lv:'e',t:'"'+l.name+'" has '+l.order.length+' station'+(l.order.length===1?'':'s')+'; a line needs at least 2.',lid:l.id});
+    (l.branches||[]).forEach(function(b){if(l.order.indexOf(b.order[0])<0){var fs=stById(b.order[0]);out.push({lv:'e',t:'A branch of "'+l.name+'" forks at "'+(fs?fs.name:'?')+'", which is no longer on the main line. Put it back on the line or delete the branch.',lid:l.id})}});
+    if(!l.name.trim())out.push({lv:'e',t:'A line has no name.',lid:l.id});
+  });
+  S.st.forEach(function(s){if(!linesOf(s.id).length)out.push({lv:'w',t:'"'+s.name+'" is not on any line.',sid:s.id})});
+  for(var i=0;i<S.st.length;i++)for(var j=i+1;j<S.st.length;j++){
+    var a=P(S.st[i].lon,S.st[i].lat),b=P(S.st[j].lon,S.st[j].lat);
+    if(Math.hypot(a[0]-b[0],a[1]-b[1])<0.05)out.push({lv:'w',t:'"'+S.st[i].name+'" and "'+S.st[j].name+'" are within 50 m of each other.',sid:S.st[i].id})}
+  if(!S.st.length)out.push({lv:'w',t:'The map has no stations yet.'});
+  var sb=bytes(mapJson());if(sb>MAXB)out.push({lv:'e',t:'This map is '+kb(sb)+', over the '+kb(MAXB)+' limit for saving. Remove some stations.'});
+  else if(sb>MAXB*.85)out.push({lv:'w',t:'This map uses '+Math.round(sb/MAXB*100)+'% of the size limit ('+kb(sb)+' of '+kb(MAXB)+').'});
+  return out}
+function renderCheck(){
+  var p=$('p-ck'),is=issuesCache,er=is.filter(function(x){return x.lv==='e'}).length,w=is.length-er;
+  var h='<h2>Check</h2><div>'+(is.length?'<b>'+er+'</b> problem'+(er===1?'':'s')+' to fix, <b>'+w+'</b> warning'+(w===1?'':'s')+'.':'<span class="ok">No problems found.</span>')+'</div>'+
+   '<div class="mu">'+S.st.length+' stations · '+S.ln.length+' lines ('+S.ln.filter(function(l){return l.rail}).length+' rail, '+S.ln.filter(function(l){return !l.rail}).length+' bus)</div>';
+  h+=is.map(function(x,i){return '<div class="iss '+x.lv+'"><em>'+(x.lv==='e'?'Fix':'Note')+'</em><span style="flex:1">'+esc(x.t)+'</span>'+(x.sid||x.lid?'<button class="btn sm" data-i="'+i+'">Show</button>':'')+'</div>'}).join('');
+  p.innerHTML=h;
+}
+$('p-ck').addEventListener('click',function(e){var b=e.target.closest('[data-i]');if(!b)return;var x=issuesCache[+b.dataset.i];
+  if(x.sid){selSt=x.sid;var s=stById(x.sid),pp=P(s.lon,s.lat);vb.x=pp[0]-vb.w/2;vb.y=pp[1]-vb.h/2;tab='st';showTab();renderAll()}
+  else if(x.lid){selLn=x.lid;tab='ln';showTab();renderAll()}});
+
+/* ---------- Map & data tab ---------- */
+function renderMap(){
+  var p=$('p-mp'),h='';
+  h+='<h2>Map centre</h2><div class="row"><label class="f" style="flex:1">Latitude<input id="m-lat" inputmode="decimal"></label><label class="f" style="flex:1">Longitude<input id="m-lon" inputmode="decimal"></label></div>'+
+    '<div class="mu">The canvas has no street map, so set the centre to where your city is and, if you like, trace over a screenshot below. Coordinates are real latitude/longitude.</div>';
+  h+='<h2>Background image</h2><div class="card"><input type="file" id="bg-file" accept="image/*" aria-label="Background image">'+
+    (bg?'<label class="f">Width on map: <b id="bg-wv">'+bg.w.toFixed(1)+' km</b><input type="range" id="bg-w" min="1" max="150" step="0.5" value="'+bg.w+'"></label><label class="f">Opacity<input type="range" id="bg-o" min="0.1" max="1" step="0.05" value="'+bg.op+'"></label><div class="row"><button class="btn sm" id="bg-c">Centre on view</button><button class="btn sm" id="bg-x">Remove image</button></div><div class="mu">Use the "Move image" tool to drag it into place. The image is not saved with the map.</div>':'<div class="mu">Optional: load a screenshot of a transit map and trace it.</div>')+'</div>';
+  var jb=bytes(mapJson()),pc=Math.min(100,jb/MAXB*100);
+  h+='<h2>Map size</h2><div class="meter" role="img" aria-label="Map size '+Math.round(pc)+' percent of the limit"><i class="'+(pc>=100?'full':pc>85?'hi':'')+'" style="width:'+pc+'%"></i></div><div class="mu">'+kb(jb)+' of the '+kb(MAXB)+' limit for a saved map ('+Math.round(pc)+'%). Background images are not saved and do not count.</div>';
+  h+='<h2>Export</h2><div class="mu">This is the map as it is saved. Stations keep real coordinates, and each line carries a rail/bus flag.</div><textarea id="ex" readonly aria-label="Exported map JSON"></textarea><div class="row"><button class="btn sm pri" id="ex-copy">Copy JSON</button><span class="msg" id="ex-msg"></span></div>';
+  h+='<h2>Import</h2><textarea id="im" placeholder="Paste map JSON here (this editor’s export, or a Rail Rush city with regions and lines)" aria-label="Import map JSON"></textarea><div class="row"><button class="btn sm" id="im-go">Load pasted JSON</button><span class="msg" id="im-msg"></span></div>';
+  p.innerHTML=h;
+  bind($('m-lat'),function(){return S.lat0.toFixed(5)},function(v){var n=parseFloat(v);if(isFinite(n)&&Math.abs(n)<=85)S.lat0=n});
+  bind($('m-lon'),function(){return S.lon0.toFixed(5)},function(v){var n=parseFloat(v);if(isFinite(n)&&Math.abs(n)<=180)S.lon0=n});
+  $('bg-file').onchange=function(){var f=this.files[0];if(!f)return;var r=new FileReader();r.onload=function(){var im=new Image();im.onload=function(){var c=vb;bg={url:r.result,ar:im.naturalHeight/im.naturalWidth,w:Math.max(5,vb.w*0.8),x:c.x+c.w/2,y:c.y+c.h/2,op:.5};renderAll();setTool('bg')};im.onerror=function(){hint('Could not read that image.')};im.src=r.result};r.readAsDataURL(f)};
+  if(bg){
+    $('bg-w').oninput=function(){bg.w=+this.value;$('bg-wv').textContent=bg.w.toFixed(1)+' km';renderCanvas()};
+    $('bg-o').oninput=function(){bg.op=+this.value;renderCanvas()};
+    $('bg-c').onclick=function(){bg.x=vb.x+vb.w/2;bg.y=vb.y+vb.h/2;renderCanvas()};
+    $('bg-x').onclick=function(){bg=null;if(tool==='bg')setTool('select');renderAll()};
+  }
+  var json=JSON.stringify(toData(),null,1);$('ex').value=json;
+  $('ex-copy').onclick=function(){var m=$('ex-msg');
+    function fb(){$('ex').focus();$('ex').select();m.textContent='Press Ctrl/Cmd+C to copy (selected).'}
+    try{navigator.clipboard.writeText(json).then(function(){m.textContent='Copied.'},fb)}catch(e){fb()}};
+  $('im-go').onclick=function(){var m=$('im-msg');
+    try{var d=JSON.parse($('im').value);if(!d||!Array.isArray(d.regions)||!Array.isArray(d.lines))throw new Error('Expected an object with "regions" and "lines".');
+      var s=fromData(d);if(!s.st.length)throw new Error('No stations found.');load(s)}catch(e){m.textContent='Could not load: '+e.message}};
+}
+
+/* ---------- accounts, saving, library, sharing ---------- */
+var MAXB=900000,DBR=null,ME=null,saveT=null,MY=[],libOff=null;
+function acct(){try{var A=window.parent&&window.parent.TGAuth,i=A&&A.info&&A.info();return i||{guest:false,name:''}}catch(e){return {guest:false,name:''}}}
+function canSave(){return !!(DBR&&ME&&!acct().guest)}
+function bytes(s){try{return new TextEncoder().encode(s).length}catch(e){return s.length}}
+function kb(n){return n<1024?n+' B':n<1048576?(n/1024).toFixed(n<10240?1:0)+' KB':(n/1048576).toFixed(2)+' MB'}
+function mapJson(){return JSON.stringify(toData())}
+function newId(){return 'm'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
+function dstr(ms){return new Date(ms||0).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})}
+function setStatus(txt,err){var e=$('savest');e.textContent=txt;e.className='savest'+(err?' err':'')}
+function modal(html,wire){return new Promise(function(res){
+  var ov=document.createElement('div');ov.className='modal';ov.setAttribute('role','dialog');ov.setAttribute('aria-modal','true');ov.innerHTML='<div class="mbox">'+html+'</div>';
+  var prev=document.activeElement;
+  function done(v){document.removeEventListener('keydown',k,true);ov.remove();try{prev&&prev.focus&&prev.focus()}catch(e){}res(v)}
+  function k(e){if(e.key==='Escape'){e.preventDefault();e.stopPropagation();done(null)}}
+  document.addEventListener('keydown',k,true);document.body.appendChild(ov);wire(ov.firstChild,done);var f=ov.querySelector('button,input');if(f)f.focus()})}
+function notice(title,text){return modal('<h2>'+esc(title)+'</h2><p>'+esc(text)+'</p><div class="mrow"><button class="btn pri" data-ok type="button">OK</button></div>',function(r,done){r.querySelector('[data-ok]').onclick=function(){done(true)}})}
+function openSignIn(){try{window.parent.document.getElementById('acct').click()}catch(e){}}
+function needAccount(){return modal('<h2>Sign in to save maps</h2><p>Maps are saved to your account so you can find them again and share them. You are using a guest profile right now. Your work stays in this browser until you sign in or create an account.</p><div class="mrow"><button class="btn pri" data-go type="button">Sign in or create account</button><button class="btn" data-no type="button">Not now</button></div>',
+  function(r,done){r.querySelector('[data-go]').onclick=function(){done(true);openSignIn()};r.querySelector('[data-no]').onclick=function(){done(null)}})}
+function statusIdle(){
+  if(CUR.ro){setStatus('');return}
+  if(!DBR||!ME)setStatus('Not connected. Changes stay in this browser.');
+  else if(acct().guest)setStatus('Draft in this browser only.');
+  else if(CUR.id)setStatus('Saved to your maps.');
+  else setStatus('Saves to your maps on your first change.')}
+function scheduleCloud(){
+  if(CUR.ro||!canSave()||!(CUR.id||CUR.dirty||CUR.nameEdited))return;
+  setStatus('Saving…');clearTimeout(saveT);saveT=setTimeout(cloudSave,1200)}
+async function cloudSave(){
+  clearTimeout(saveT);saveT=null;
+  if(CUR.ro||!canSave())return false;
+  var json=mapJson(),b=bytes(json);
+  if(b>MAXB){setStatus('Too large to save ('+kb(b)+' of '+kb(MAXB)+'). Remove some stations.',true);return false}
+  var now=Date.now(),creating=!CUR.id;if(creating)CUR.id=newId();
+  var d={owner:ME,ownerName:acct().name||'',name:S.name||'Untitled map',json:json,st:S.st.length,ln:S.ln.length,share:CUR.share||'private',updatedAt:now};
+  if(creating){d.createdAt=now;if(CUR.from)d.copiedFrom=CUR.from}
+  try{await DBR.doc('maps/'+CUR.id).set(d,{merge:true});CUR.owner=ME;
+    if(creating){try{localStorage.removeItem('tg-map-draft')}catch(e){}}
+    setStatus('Saved '+new Date(now).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})+'.');applyModeUI();return true}
+  catch(e){console.error(e);if(creating)CUR.id=null;setStatus('Could not save. Will try again.',true);clearTimeout(saveT);saveT=setTimeout(cloudSave,10000);return false}}
+async function flush(){if(saveT)await cloudSave()}
+
+function applyModeUI(){
+  var ed=$('ed');ed.classList.toggle('ro',!!CUR.ro);
+  $('mapname').readOnly=!!CUR.ro;
+  $('sharebtn').hidden=!!CUR.ro;
+  $('signin').hidden=!(DBR&&ME&&acct().guest&&!CUR.ro);
+  $('copybtn').textContent=CUR.ro?'Save a copy':'Duplicate';
+  var rb=$('rob');
+  if(CUR.ro){rb.hidden=false;rb.innerHTML='<span>You are viewing '+(CUR.ownerName?'<b>'+esc(CUR.ownerName)+'</b>’s':'a shared')+' map. It is view-only. Save a copy to edit your own.</span><button class="btn sm pri" id="rob-copy" type="button">Save a copy</button>';$('rob-copy').onclick=makeCopy}
+  else{rb.hidden=true;rb.innerHTML=''}
+  statusIdle()}
+function showEditor(){$('lib').hidden=true;$('ed').hidden=false}
+function showLib(){$('ed').hidden=true;$('lib').hidden=false;renderLib()}
+function openDoc(s,cur){
+  S=s;CUR=Object.assign({id:null,owner:null,ownerName:'',share:'private',ro:false,dirty:false,nameEdited:false,from:null},cur||{});
+  hist=[];fut=[];selSt=null;selLn=S.ln.length?S.ln[0].id:null;bg=null;tool='select';tg={b:null,e:'end'};addId=null;segDrag=null;touched=false;stFilter='';tab='st';
+  showEditor();applyModeUI();setTool('select');showTab();renderAll();fitStations()}
+function builtin(k){var d=BUILTINS[k];if(!d)return null;var s=fromData(d);return s}
+function newFrom(kind){
+  var s,from=null;
+  if(kind==='blank')s=blank();else if(kind==='example')s=example();
+  else{s=builtin(kind);if(!s)return;s.name=(BUILTINS[kind].name||kind)+' (my copy)';from='builtin:'+kind}
+  openDoc(s,{from:from})}
+async function openMap(id){
+  var bad='That map does not exist, or its owner has not shared it with you.';
+  if(!DBR){await notice('Not connected','Maps cannot be opened right now.');return false}
+  var snap;try{snap=await DBR.doc('maps/'+id).get()}catch(e){console.error(e);await notice('Cannot open map',bad);return false}
+  if(!snap.exists){await notice('Cannot open map',bad);return false}
+  var d=snap.data(),s;try{s=fromData(JSON.parse(d.json))}catch(e){await notice('Cannot open map','This map could not be read.');return false}
+  s.name=d.name||s.name;
+  openDoc(s,{id:id,owner:d.owner,ownerName:d.ownerName||'',share:d.share||'private',ro:d.owner!==ME,from:d.copiedFrom||null});return true}
+async function makeCopy(){
+  if(!canSave()){await needAccount();return}
+  await flush();
+  var s=fromData(JSON.parse(mapJson()));s.name=(S.name||'Map')+' (copy)';
+  var from=CUR.id||CUR.from;
+  openDoc(s,{from:from,dirty:true});
+  if(await cloudSave())setStatus('Saved a copy to your maps. You can edit it.')}
+async function dupMap(id){
+  var m=MY.filter(function(x){return x.id===id})[0];if(!m)return;
+  var s;try{s=fromData(JSON.parse(m.json))}catch(e){return}
+  s.name=(m.name||'Map')+' (copy)';openDoc(s,{from:id,dirty:true});await cloudSave()}
+function shareUrl(id){try{var L=window.parent.location;return L.origin+L.pathname+'#map='+id}catch(e){return '#map='+id}}
+async function shareDlg(){
+  if(CUR.ro)return;
+  if(!canSave()){await needAccount();return}
+  if(!CUR.id){CUR.dirty=true;if(!(await cloudSave()))return}
+  var id=CUR.id;
+  await modal('<h2>Share this map</h2><label class="chk"><input type="checkbox" id="sh-on"'+(CUR.share==='link'?' checked':'')+'><span>Anyone with the link can view this map and save their own copy. Only you can change it.</span></label>'+
+    '<div id="sh-box"></div><div class="mu" id="sh-msg">Maps are private until you turn this on.</div><div class="mrow"><button class="btn" data-x type="button">Done</button></div>',
+    function(r,done){
+      function paint(){var on=CUR.share==='link';r.querySelector('#sh-box').innerHTML=on?'<input class="linkbox" id="sh-url" readonly aria-label="Share link" value="'+esc(shareUrl(id))+'"><div class="mrow" style="margin-top:6px"><button class="btn pri" id="sh-copy" type="button">Copy link</button></div>':'';
+        if(on)r.querySelector('#sh-copy').onclick=function(){var u=r.querySelector('#sh-url'),m=r.querySelector('#sh-msg');
+          function fb(){u.focus();u.select();m.textContent='Press Ctrl/Cmd+C to copy (selected).'}
+          try{navigator.clipboard.writeText(u.value).then(function(){m.textContent='Link copied.'},fb)}catch(e){fb()}}}
+      paint();
+      r.querySelector('#sh-on').onchange=async function(){var on=this.checked,m=r.querySelector('#sh-msg');this.disabled=true;
+        try{await DBR.doc('maps/'+id).set({share:on?'link':'private',updatedAt:Date.now()},{merge:true});CUR.share=on?'link':'private';m.textContent=on?'Sharing is on.':'Sharing is off. The link no longer works.'}
+        catch(e){console.error(e);this.checked=!on;m.textContent='Could not change sharing. Try again.'}
+        this.disabled=false;paint()};
+      r.querySelector('[data-x]').onclick=function(){done(true)}})}
+
+function renderLib(){
+  var el=$('libin'),h='<h1>Map Editor</h1><p class="mu">Build maps for Rail Rush. Your maps are private until you share a link.</p>';
+  h+='<h2>Start a map</h2><div class="row"><button class="btn pri" data-new="blank" type="button">Blank map</button><button class="btn" data-new="example" type="button">Example city</button></div>';
+  var bk=Object.keys(BUILTINS);
+  if(bk.length)h+='<h2>Edit a city</h2><div class="mu">Opens your own copy to edit. The original city is never changed.</div><div class="row">'+bk.map(function(k){return '<button class="btn" data-new="'+esc(k)+'" type="button">'+esc(BUILTINS[k].name||k)+'</button>'}).join('')+'</div>';
+  var dr=null;try{var raw=localStorage.getItem('tg-map-draft');if(raw){dr=JSON.parse(raw);if(!dr||!Array.isArray(dr.st)||!Array.isArray(dr.ln))dr=null}}catch(e){dr=null}
+  if(dr)h+='<h2>Unsaved draft</h2><div class="card"><div class="row"><b style="flex:1">'+esc(dr.name||'Untitled')+'</b><span class="chip">Draft in this browser</span></div><div class="mu">'+dr.st.length+' stations · '+dr.ln.length+' lines</div><div class="row"><button class="btn" data-draft="open" type="button">Continue</button><button class="btn" data-draft="del" type="button">Discard</button></div></div>';
+  h+='<h2>My maps</h2>';
+  if(!DBR||!ME)h+='<div class="mu">Not connected, so saved maps cannot be shown.</div>';
+  else if(acct().guest)h+='<div class="mu">Sign in to save maps and find them here.</div><div class="row"><button class="btn pri" data-signin type="button">Sign in or create account</button></div>';
+  else if(!MY.length)h+='<div class="mu">No saved maps yet. Start one above; it saves to your account when you make your first change.</div>';
+  else h+=MY.slice().sort(function(a,b){return (b.updatedAt||0)-(a.updatedAt||0)}).map(function(m){
+    return '<div class="card" data-m="'+esc(m.id)+'"><div class="row"><b style="flex:1;min-width:0;overflow-wrap:anywhere">'+esc(m.name||'Untitled map')+'</b><span class="chip'+(m.share==='link'?' on':'')+'">'+(m.share==='link'?'Shared by link':'Private')+'</span></div>'+
+      '<div class="mu">'+(m.st||0)+' stations · '+(m.ln||0)+' lines · edited '+esc(dstr(m.updatedAt))+'</div><div class="row"><button class="btn pri" data-a="open" type="button">Open</button><button class="btn" data-a="dup" type="button">Duplicate</button><button class="btn" data-a="del" type="button">Delete</button></div></div>'}).join('');
+  h+='<h2>Open a shared map</h2><form class="row" id="lib-open"><input class="nameIn" style="max-width:none;flex:1" id="lib-link" placeholder="Paste a map link" aria-label="Map link"><button class="btn" type="submit">Open</button></form><div class="mu" id="lib-msg"></div>';
+  el.innerHTML=h}
+$('libin').addEventListener('click',async function(e){
+  var b=e.target.closest('button');if(!b)return;
+  if(b.dataset.new){newFrom(b.dataset.new);return}
+  if(b.hasAttribute('data-signin')){openSignIn();return}
+  if(b.dataset.draft==='open'){try{var d=JSON.parse(localStorage.getItem('tg-map-draft'));openDoc(d,{dirty:true})}catch(x){}return}
+  if(b.dataset.draft==='del'){try{localStorage.removeItem('tg-map-draft')}catch(x){}renderLib();return}
+  var card=b.closest('[data-m]');if(!card)return;var id=card.dataset.m,m=MY.filter(function(x){return x.id===id})[0];
+  if(b.dataset.a==='open')await openMap(id);
+  else if(b.dataset.a==='dup')await dupMap(id);
+  else if(b.dataset.a==='del'&&m){
+    var yes=await modal('<h2>Delete this map?</h2><p>“'+esc(m.name||'Untitled map')+'” will be deleted for good, and its share link will stop working. Games already started from it keep their own copy.</p><div class="mrow"><button class="btn pri" data-y type="button">Delete</button><button class="btn" data-n type="button">Cancel</button></div>',
+      function(r,done){r.querySelector('[data-y]').onclick=function(){done(true)};r.querySelector('[data-n]').onclick=function(){done(null)}});
+    if(yes){try{await DBR.doc('maps/'+id).delete()}catch(x){console.error(x);await notice('Could not delete','Try again in a moment.')}}}});
+$('libin').addEventListener('submit',async function(e){e.preventDefault();
+  var v=($('lib-link').value||'').trim(),m=/(?:#|[?&])map=([A-Za-z0-9_-]{3,60})/.exec(v)||/^([A-Za-z0-9_-]{3,60})$/.exec(v);
+  if(!m){$('lib-msg').textContent='That does not look like a map link.';return}
+  await openMap(m[1])});
+$('tolib').onclick=async function(){await flush();showLib()};
+$('sharebtn').onclick=shareDlg;$('copybtn').onclick=makeCopy;$('signin').onclick=openSignIn;
+window.addEventListener('beforeunload',function(){try{if(saveT)cloudSave()}catch(e){}});
+
+/* ---------- boot ---------- */
+(function(){
+  S=blank();selLn=null;
+  function ready(){if(!svg.clientWidth)return;if(!touched){if(vb)fitStations()}else if(vb){renderCanvas()}}
+  if(window.ResizeObserver)new ResizeObserver(ready).observe(svg);else window.addEventListener('resize',ready);
+  showLib();
+  (async function(){
+    try{if(typeof claude!=='undefined'){DBR=await claude.use('db');var u=await claude.use('user');ME=u?await u.id():null}}catch(e){console.error(e);DBR=null;ME=null}
+    if(DBR&&ME&&!acct().guest){
+      try{libOff=DBR.collection('maps').where('owner','==',ME).onSnapshot(function(q){MY=q.docs.map(function(d){var o=d.data();o.id=d.id;return o});if(!$('lib').hidden)renderLib()},function(e){console.error(e)})}catch(e){console.error(e)}}
+    var id=String(window.TG_GID||'').trim();
+    if(/^[A-Za-z0-9_-]{3,60}$/.test(id)&&DBR){if(!(await openMap(id)))showLib()}
+    else renderLib()})();
+})();
+})();
+</script>
+</body></html>

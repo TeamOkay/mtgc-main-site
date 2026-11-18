@@ -1,10 +1,44 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Anyone signed in (guests included) can read and write game data.
+
+    // Game data: anyone signed in (guests included) can read and write.
     // Game passwords are a client-side gate, not real security: fine for friendly games.
-    match /{document=**} {
+    match /games/{document=**} {
       allow read, write: if request.auth != null;
+    }
+    match /hides/{document=**} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Maps built in the Map Editor. Private by default (share == 'private'); share == 'link' lets anyone
+    // who has the map's id read that one document, but nobody can list other people's maps.
+    // Only real accounts (not guests) can create or change maps, and only their own.
+    match /maps/{mapId} {
+      allow get: if request.auth != null
+                 && (resource.data.owner == request.auth.uid || resource.data.share == 'link');
+      allow list: if request.auth != null && resource.data.owner == request.auth.uid;
+      allow create: if request.auth != null
+                    && request.auth.token.firebase.sign_in_provider != 'anonymous'
+                    && request.resource.data.owner == request.auth.uid
+                    && request.resource.data.share in ['private', 'link'];
+      allow update: if request.auth != null
+                    && request.auth.token.firebase.sign_in_provider != 'anonymous'
+                    && resource.data.owner == request.auth.uid
+                    && request.resource.data.owner == request.auth.uid
+                    && request.resource.data.share in ['private', 'link'];
+      allow delete: if request.auth != null && resource.data.owner == request.auth.uid;
+
+      // Challenges that travel with a map (added in a later step). The owner sees all of them;
+      // anyone with the link sees only the ones the owner marked pub == true, and only while the map is shared.
+      match /challenges/{cid} {
+        allow read: if request.auth != null
+                    && (get(/databases/$(database)/documents/maps/$(mapId)).data.owner == request.auth.uid
+                        || (get(/databases/$(database)/documents/maps/$(mapId)).data.share == 'link' && resource.data.pub == true));
+        allow write: if request.auth != null
+                     && request.auth.token.firebase.sign_in_provider != 'anonymous'
+                     && get(/databases/$(database)/documents/maps/$(mapId)).data.owner == request.auth.uid;
+      }
     }
   }
 }

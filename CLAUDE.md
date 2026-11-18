@@ -5,11 +5,12 @@ Companion site for city-scale transit games (Rail Rush, Area Claiming, Ticket to
 ## Layout
 - `src/shell.html`: home, start/ongoing/past lists, create-game dialog, account dialog, light/dark toggle. Each game runs in an iframe (`srcdoc`) inside it.
 - `src/rail-rush.html`, `src/area-claiming.html`, `src/ticket-to-ride.html`: one self-contained file per game (HTML + CSS + JS).
+- `src/map-editor.html`: the Map Editor (opened from the home screen in its own frame, like a game). Maps live in `maps/{id}` (owner, name, `json` string holding the Rail Rush map format, `share` = `private`|`link`; challenges will go in `maps/{id}/challenges`). Share links are `/#map=<id>`. Boston, Toronto and Montréal are read from `src/rail-rush.html` by `build.mjs` and offered as "Edit a city" (always opens the user's own copy). The map is stored as a JSON string on purpose: Firestore rejects nested arrays and the string keeps the size measurable (limit 900 KB).
 - `src/platform.js`: the ONLY file that talks to Firebase. Provides `claude.use('db')` (a Firestore instance) and `claude.use('user')` (`id()`), plus `window.TGAuth` for accounts. Games use `db.doc/collection/onSnapshot/get/set/update/delete/add/where`.
 - `src/firebase-config.js`: Firebase web config (not secret).
-- `firestore.rules`: security rules; paste changes into Firebase console > Firestore > Rules.
+- `firestore.rules`: security rules; paste changes into Firebase console > Firestore > Rules. Games and hides stay open to any signed-in user; `maps` are owner-only unless `share == 'link'` (then readable by id, never listable), and only non-guest accounts can create or change them. Do not add a catch-all `/{document=**}` rule: it would override the map rules.
 - `build.mjs`: `npm run build` embeds the games, config and platform into `public/index.html`. `public/` is generated: never edit it.
-- `test/`: Python + Playwright tests with a mock shared database (`harness.py`). Run `python3 test/t_full.py` (also `t_3team.py`, `t_area.py`, `t_boston.py`, `t_theme.py`) after `npm run build`. Needs `pip install playwright && playwright install chromium`.
+- `test/`: Python + Playwright tests with a mock shared database (`harness.py`). Run `python3 test/t_full.py` (also `t_3team.py`, `t_area.py`, `t_boston.py`, `t_theme.py`, `t_maps.py`) after `npm run build`. Needs `pip install playwright && playwright install chromium`.
 - `tools/`: Boston map data (`boston.json`) already embedded in Rail Rush; kept for reference.
 
 ## Working rules
