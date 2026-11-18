@@ -81,7 +81,13 @@ def host_game(w, uid, typ, name, pw='pw123', host='Host', city=None):
     p.fill('#cn', host); p.fill('#cg', name); p.fill('#cp', pw)
     if city and p.query_selector('#cc'): p.select_option('#cc', city)
     p.click('#cs'); p.wait_for_timeout(1200); w.pump(300)
-    return [k for k, v in w.games().items() if v['name'] == name][0]
+    gid = [k for k, v in w.games().items() if v['name'] == name][0]
+    if city and typ == 'rail-rush':
+        # Rail Rush games start without a map now; tests that need an original city simulate a legacy game.
+        f = w.frame(uid); f.wait_for_function("window.S&&S.gid||typeof S!=='undefined'&&S.gid", timeout=5000) if False else None
+        p.wait_for_timeout(500)
+        w.frame(uid).evaluate("(c)=>S.db.doc('games/'+S.gid).update({city:c})", city); p.wait_for_timeout(800); w.pump(300)
+    return gid
 
 def join_from_list(w, uid, gid, pw=None, expect_prompt=None):
     p = w.pages[uid]
