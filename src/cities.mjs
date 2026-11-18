@@ -1,0 +1,80 @@
+// Builds the built-in city maps offered by the Map Editor ("Edit a city") from the original Rail Rush networks (NETS in rail-rush.html).
+// Each city comes in two variants:
+//   <City>-Augmented  every line of the original city (Boston, Montréal: Red, Green, Silver and the REM merged into branching lines)
+//   <City>-Base       only the main rail lines
+// Output format = the Map Editor's import format: { name, regions, lines[{ id, name, color, rail, order, branches?: [{ name, order }] }] }.
+// A branch's first station is the station where it leaves the line's trunk.
+
+const RAIL = /^(\d|A\d?|LSE|LSW|UP|Red[AB]|Orange|Blue|Green[BCDE]|Mattapan)$/;   // how Rail Rush has told rail from bus
+
+export function cityMaps(NETS) {
+  const out = {};
+  const get = (c, id) => { const l = NETS[c].lines.find(x => x.id === id); if (!l) throw new Error(`line ${c}/${id} not found`); return l; };
+  const at = (o, id, what) => { const i = o.indexOf(id); if (i < 0) throw new Error(`station ${id} not on ${what}`); return i; };
+  const upto = (o, id, w) => o.slice(0, at(o, id, w) + 1);
+  const from = (o, id, w) => o.slice(at(o, id, w));
+  const same = (a, b, w) => { if (a.join() !== b.join()) throw new Error('trunk mismatch: ' + w); };
+  const plain = (c, id) => { const l = get(c, id); return { id: l.id, name: l.name, color: l.color, rail: RAIL.test(l.id), order: l.order.slice() }; };
+
+  function build(name, city, lines) {
+    const used = new Set();
+    lines.forEach(l => { l.order.concat(...(l.branches || []).map(b => b.order)).forEach(i => used.add(i)); });
+    const regions = NETS[city].regions.filter(r => used.has(r.id)).map(r => {
+      const ls = lines.filter(l => l.order.includes(r.id) || (l.branches || []).some(b => b.order.includes(r.id))).map(l => l.id);
+      return Object.assign({}, r, { lines: ls });
+    });
+    return { name, regions, lines };
+  }
+  // Replace `ids` (original lines) by `merged`, placed where the first of them was; every other line is kept as it was.
+  function swap(city, ids, merged) {
+    const out = []; let done = false;
+    NETS[city].lines.forEach(l => {
+      if (ids.includes(l.id)) { if (!done) { out.push(...merged); done = true; } } else out.push(plain(city, l.id));
+    });
+    return out;
+  }
+
+  /* ---- Toronto ---- */
+  out['toronto-augmented'] = build('Toronto-Augmented', 'toronto', NETS.toronto.lines.map(l => plain('toronto', l.id)));
+  out['toronto-base'] = build('Toronto-Base', 'toronto', ['1', '2', '4', '5', '6'].map(id => plain('toronto', id)));
+
+  /* ---- Boston ---- */
+  const RA = get('boston', 'RedA'), RB = get('boston', 'RedB');
+  const red = { id: 'Red', name: 'Red Line', color: RA.color, rail: true,
+    order: upto(RA.order, 'jfk-umass', 'RedA'),
+    branches: [{ name: 'A', order: from(RA.order, 'jfk-umass', 'RedA') }, { name: 'B', order: from(RB.order, 'jfk-umass', 'RedB') }] };
+  same(upto(RB.order, 'jfk-umass', 'RedB'), red.order, 'Red');
+  const GB = get('boston', 'GreenB'), GC = get('boston', 'GreenC'), GD = get('boston', 'GreenD'), GE = get('boston', 'GreenE');
+  const gtrunk = GB.order.slice(0, at(GB.order, 'copley', 'GreenB') + 1).reverse();   // Copley ... Government Center
+  if (gtrunk[0] !== 'copley' || gtrunk[gtrunk.length - 1] !== 'government-center') throw new Error('Green trunk');
+  const north = (l, w) => l.order.slice(0, at(l.order, 'government-center', w) + 1).reverse();   // Government Center -> toward Union Sq / Medford
+  const green = { id: 'Green', name: 'Green Line', color: GB.color, rail: true, order: gtrunk, branches: [
+    { name: 'B', order: from(GB.order, 'copley', 'GreenB') },
+    { name: 'C', order: from(GC.order, 'copley', 'GreenC') },
+    { name: 'D', order: from(GD.order, 'copley', 'GreenD') },
+    { name: 'D', order: north(GD, 'GreenD') },
+    { name: 'E', order: from(GE.order, 'copley', 'GreenE') },
+    { name: 'E', order: north(GE, 'GreenE') }] };
+  const S1 = get('boston', 'SL1'), S2 = get('boston', 'SL2'), S3 = get('boston', 'SL3');
+  const strunk = upto(S1.order, 'silver-line-way', 'SL1');
+  same(upto(S2.order, 'silver-line-way', 'SL2'), strunk, 'SL2'); same(upto(S3.order, 'silver-line-way', 'SL3'), strunk, 'SL3');
+  const silver = { id: 'Silver', name: 'Silver Line', color: S1.color, rail: false, order: strunk, branches: [
+    { name: 'SL1', order: from(S1.order, 'silver-line-way', 'SL1') },
+    { name: 'SL2', order: from(S2.order, 'silver-line-way', 'SL2') },
+    { name: 'SL3', order: from(S3.order, 'silver-line-way', 'SL3') }] };
+  let bl = swap('boston', ['RedA', 'RedB'], [red]);
+  bl = bl.flatMap(l => l.id === 'GreenB' ? [green] : ['GreenC', 'GreenD', 'GreenE'].includes(l.id) ? [] : l.id === 'SL1' ? [silver] : ['SL2', 'SL3'].includes(l.id) ? [] : [l]);
+  out['boston-augmented'] = build('Boston-Augmented', 'boston', bl);
+  const pick = ids => ids.map(id => bl.find(l => l.id === id));
+  out['boston-base'] = build('Boston-Base', 'boston', pick(['Red', 'Orange', 'Blue', 'Green', 'Mattapan']));
+
+  /* ---- Montréal ---- */
+  const MA = get('montreal', 'A'), M3 = get('montreal', 'A3');
+  const rem = { id: 'REM', name: 'REM', color: MA.color, rail: true, order: upto(MA.order, 'bois-franc', 'A'), branches: [
+    { name: 'A3', order: M3.order.slice() }, { name: 'A4', order: from(MA.order, 'bois-franc', 'A') }] };
+  if (M3.order[0] !== 'bois-franc') throw new Error('A3 start');
+  const ml = swap('montreal', ['A', 'A3'], [rem]);
+  out['montreal-augmented'] = build('Montréal-Augmented', 'montreal', ml);
+  out['montreal-base'] = build('Montréal-Base', 'montreal', ['1', '2', '4', '5', 'REM'].map(id => ml.find(l => l.id === id)));
+  return out;
+}
