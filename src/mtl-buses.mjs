@@ -35,10 +35,10 @@ export const ROUTES = [
   { id: '48', name: '48/49 Henri-Bourassa / Pie-IX (bus)', color: '#827717', stops: [   // the 48 Perras and 49 Armand-Bombardier share this stretch (the 48's stops, towards Pie-IX)
     E('henri-bourassa'), S('Henri-Bourassa & Christophe-Colomb'), S('Henri-Bourassa & de Saint-Firmin'), S('Henri-Bourassa & Saint-Michel'), S('Henri-Bourassa & de Bruxelles'),
     E('pie-ix-d-amos')] },                                  // Henri-Bourassa / Pie-IX = the 439's last station (renamed in cities.mjs)
-  { id: '206', name: '206 Roger-Pilon (Fairview–Pointe-Claire / Des Sources) (bus)', color: '#00897b', stops: [
+  { id: '206', name: '206 Roger-Pilon (Fairview–Pointe-Claire / Des Sources) (bus)', color: '#00897b', elbow: true, stops: [   // elbow: straight up from the first stop, then one right turn to the last
     E('fairviewpointe-claire'),
-    S('Brunswick & Auto Plaza'), S('Saint-Jean & Blue Haven', [-73.8245, 45.4790]), S('Blue Haven & des Pins'), S('Blue Haven & Jourdain'), S('Blue Haven & Viking'),
-    S('Blue Haven & Lake'), S('Lake & Hemingway'), S('Hemingway & Greenfield'), S('Baffin & Roger-Pilon', [-73.7995, 45.4838]),
+    S('Brunswick & Auto Plaza'), S('Saint-Jean & Blue Haven'), S('Blue Haven & des Pins'), S('Blue Haven & Jourdain'), S('Blue Haven & Viking'),
+    S('Blue Haven & Lake'), S('Lake & Hemingway'), S('Hemingway & Greenfield'), S('Baffin & Roger-Pilon'),
     S('Roger-Pilon & Tecumseh'), S('Roger-Pilon & Fredmir'), S('Roger-Pilon & Manuel'), S('Roger-Pilon & Westpark'),
     S('Westpark & Wilson'), S('Westpark & Anselme-Lavigne'), S('Anselme-Lavigne & Oslo'), S('Anselme-Lavigne & Greenview'),
     E('des-sources-anselme-lavigne')] },
@@ -58,8 +58,14 @@ export function mtlBuses(byId, remove = {}) {
       const t = (i - a) / (b - a); p.c = [pts[a].c[0] + (pts[b].c[0] - pts[a].c[0]) * t, pts[a].c[1] + (pts[b].c[1] - pts[a].c[1]) * t].map(v => Math.round(v * 1e4) / 1e4);
       p.guess = true;
     });
+    // elbow routes: new stops are spread evenly along an L (north from the first stop to the last stop's latitude, then east)
+    const onL = list => { const A = list[0].c, B = list[list.length - 1].c, up = Math.abs(B[1] - A[1]) * 111.2, right = Math.abs(B[0] - A[0]) * 78.3, tot = up + right;
+      list.forEach((p, i) => { if (!p.n) return; const d = tot * i / (list.length - 1);
+        p.c = d <= up ? [A[0], A[1] + (B[1] - A[1]) * (d / up)] : [A[0] + (B[0] - A[0]) * ((d - up) / right), B[1]]; p.c = p.c.map(v => Math.round(v * 1e4) / 1e4); }); };
+    if (R.elbow) onL(pts);
     let keep = pts;
     if (remove[R.id]) keep = thinEven(pts, p => p.c, p => !p.n, remove[R.id]);
+    if (R.elbow) onL(keep);
     keep.forEach(p => { if (p.n) { if (seen.has(p.id) || byId(p.id)) throw new Error('duplicate stop id ' + p.id); seen.add(p.id); regions.push({ id: p.id, name: p.n, c: p.c, lines: [], pt: 1 }); } });
     lines.push({ id: R.id, name: R.name, color: R.color, rail: false, order: keep.map(p => p.id) });
   }
