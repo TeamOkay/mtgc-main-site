@@ -70,6 +70,9 @@ ok('Montréal-Augmented keeps buses', ['439', '747', '815', '209', '215', '121']
   ok('removed stops are gone from the map', !st('cote-vertu-lebeau') && !st('pierrefondsroxboro').lines.includes('206') && !st('gouin-2e-avenue'));
   ok('48/49 runs Henri-Bourassa to Henri-Bourassa & Pie-IX with 4 stops between', ends2('48', 'henri-bourassa', 'pie-ix-d-amos', 6) && L(k, '48').name.startsWith('48/49'), L(k, '48').order.length);
   ok('48/49 ends at the 439\'s last station, renamed Pie-IX & Henri-Bourassa', st('pie-ix-d-amos').lines.sort().join() === '439,48' && st('pie-ix-d-amos').name === 'Pie-IX & Henri-Bourassa' && st('henri-bourassa').lines.includes('48'));
+  { const o = L(k, '206').order.map(s => st(s).c), A = o[0], B = o[o.length - 1], up = o.filter(c => c[0] === A[0]), right = o.filter(c => c[1] === B[1]);
+    ok('206 goes straight up from Fairview–Pointe-Claire, then turns right once at the latitude of Des Sources & Anselme-Lavigne',
+      up.length >= 4 && up.every((c, i) => i === 0 || c[1] > up[i - 1][1]) && up[up.length - 1][1] <= B[1] && right.length >= 3 && right.every((c, i) => i === 0 || c[0] > right[i - 1][0]) && up.length + right.length - 1 <= o.length + 0 && o.every(c => c[0] === A[0] || c[1] === B[1]), JSON.stringify(o)); }
   ok('new buses show on their stations', st('lasalle').lines.includes('12') && st('monk').lines.includes('35') && st('saint-michel').lines.includes('141'));
   ok('Montréal-Base unaffected', !M['montreal-base'].lines.some(l => ['12', '35', '141', '121'].includes(l.id)) && M['montreal-base'].regions.some(r => r.id === 'montpellier')); }
 // consistency: region.lines match the lines
