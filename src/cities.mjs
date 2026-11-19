@@ -18,12 +18,12 @@ export function cityMaps(NETS) {
   const same = (a, b, w) => { if (a.join() !== b.join()) throw new Error('trunk mismatch: ' + w); };
   const plain = (c, id) => { const l = get(c, id); return { id: l.id, name: l.name, color: l.color, rail: RAIL.test(l.id), order: l.order.slice() }; };
 
-  function build(name, city, lines, extra = [], over = {}) {
+  function build(name, city, lines, extra = [], over = {}, names = {}) {
     const used = new Set();
     lines.forEach(l => { l.order.concat(...(l.branches || []).map(b => b.order)).forEach(i => used.add(i)); });
     const regions = NETS[city].regions.concat(extra).filter(r => used.has(r.id)).map(r => {
       const ls = lines.filter(l => l.order.includes(r.id) || (l.branches || []).some(b => b.order.includes(r.id))).map(l => l.id);
-      return Object.assign({}, r, over[r.id] ? { c: over[r.id] } : {}, { lines: ls });
+      return Object.assign({}, r, over[r.id] ? { c: over[r.id] } : {}, names[r.id] ? { name: names[r.id] } : {}, { lines: ls });
     });
     return { name, regions, lines };
   }
@@ -95,7 +95,7 @@ export function cityMaps(NETS) {
   thinBus(ml.find(l => l.id === '215'), ['cote-vertu', 'bois-franc'], 1);
   const mb = mtlBuses(reg, { '141': 33, '35': 5, '206': 10 });   // buses 141, 35, 206 thinned; 12 as is
   ml.push(...mb.lines);
-  out['montreal-augmented'] = build('Montréal-Augmented', 'montreal', ml, mb.regions, over);
+  out['montreal-augmented'] = build('Montréal-Augmented', 'montreal', ml, mb.regions, over, { 'pie-ix-d-amos': 'Pie-IX & Henri-Bourassa' });
   out['montreal-base'] = build('Montréal-Base', 'montreal', ['1', '2', '4', '5', 'REM'].map(id => ml.find(l => l.id === id)), [], over);
   return out;
 }
