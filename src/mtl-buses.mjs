@@ -32,6 +32,9 @@ export const ROUTES = [
     S('Saint-Rémi & Cabot'), S('Saint-Rémi & Sainte-Émilie'), S('Saint-Rémi & Notre-Dame', [-73.5815, 45.4720]), S('Notre-Dame & de Courcelle'),
     S('Square Sir-George-Étienne-Cartier', [-73.5885, 45.4745]), S('Saint-Jacques & Saint-Philippe', [-73.5882, 45.4762]),
     E('place-saint-henri')] },
+  { id: '48', name: '48/49 Henri-Bourassa / Pie-IX (bus)', color: '#827717', stops: [   // the 48 Perras and 49 Armand-Bombardier share this stretch (the 48's stops, towards Pie-IX)
+    E('henri-bourassa'), S('Henri-Bourassa & Christophe-Colomb'), S('Henri-Bourassa & de Saint-Firmin'), S('Henri-Bourassa & Saint-Michel'), S('Henri-Bourassa & de Bruxelles'),
+    E('pie-ix-d-amos')] },                                  // Henri-Bourassa / Pie-IX = the 439's last station (renamed in cities.mjs)
   { id: '206', name: '206 Roger-Pilon (Fairview–Pointe-Claire / Des Sources) (bus)', color: '#00897b', stops: [
     E('fairviewpointe-claire'),
     S('Brunswick & Auto Plaza'), S('Saint-Jean & Blue Haven', [-73.8245, 45.4790]), S('Blue Haven & des Pins'), S('Blue Haven & Jourdain'), S('Blue Haven & Viking'),
