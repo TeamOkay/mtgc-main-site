@@ -147,6 +147,7 @@ addEventListener('pointerup',e=>{if(ptr.size===1&&moved<6&&dn){S.sel=dn;paint();
 addEventListener('pointercancel',e=>{ptr.delete(e.pointerId);pd=0});
 svg.addEventListener('wheel',e=>{e.preventDefault();zoom(e.deltaY>0?1.2:1/1.2,e.clientX,e.clientY)},{passive:false});
 const mid=()=>{const r=svg.getBoundingClientRect();return[r.left+r.width/2,r.top+r.height/2]};
+$('pop').addEventListener('click',e=>{if(e.target.closest('[data-closepop]')){S.sel=null;paint();renderPop()}});
 $('zi').onclick=()=>zoom(1/1.5,...mid());$('zo').onclick=()=>zoom(1.5,...mid());
 const locsOf=c=>(S.board.where&&S.board.where[c.id])||(c.anywhere?[]:(c.loc||[]));
 const chalsAt=id=>S.chal.filter(c=>!S.board.closed.has(c.id)&&locsOf(c).includes(id));
@@ -164,18 +165,19 @@ function paint(){const cm=S.msub==='chal',lv=liveSt(),pk=S.board.pink&&S.board.p
 function renderMsub(){$('msub').innerHTML=[['coins','Gameboard'],['chal','Challenge Bank']].map(([k,l])=>'<button data-m="'+k+'" class="'+(S.msub===k?'on':'')+'">'+l+'</button>').join('');
  $('msub').querySelectorAll('button').forEach(b=>b.onclick=()=>{S.msub=b.dataset.m;$('pop').innerHTML='';renderMsub();paint();renderPop()})}
 const chips=r=>r.lines.map(l=>'<span class="chip" style="border-color:'+LC[l].color+'">'+esc(LC[l].name)+'</span>').join('');
+const XB='<button class="chip" data-closepop="1" aria-label="Close" title="Close" style="cursor:pointer;background:transparent;color:inherit;padding:2px 9px;font-size:16px;line-height:1">\u2715</button>';
 function renderPop(soft){const p=$('pop'),r=ST[S.sel];
  if(S.msub==='chal'){
   if(!r){p.innerHTML='<span class="mu">Tap a station to see the challenges there. The orange number is how many challenges in the bank are at each station.</span>';return}
   const mt=myTeam(),list=chalsAt(r.id);
-  p.innerHTML='<b>'+esc(r.name)+'</b><div>'+chips(r)+'</div>'+(list.length?list.map(c=>{const x=(S.board.ch||{})[c.id]||{},y=mt&&x[mt],k=typeOf(c);
+  p.innerHTML='<div class="row" style="margin:0"><b class="sp">'+esc(r.name)+'</b>'+XB+'</div><div>'+chips(r)+'</div>'+(list.length?list.map(c=>{const x=(S.board.ch||{})[c.id]||{},y=mt&&x[mt],k=typeOf(c);
    return '<div class="card" style="margin:6px 0;padding:8px"><div class="row" style="margin:0"><b class="sp">'+esc(c.title)+'</b><span class="chip">'+esc(KINDS[k])+'</span></div><div class="mu">'+esc(rewardChip(c,mt))+(c.anywhere?' &middot; random station':'')+(y?' &middot; <span class="'+(y.s==='done'?'ok':'no')+'">'+(y.s==='done'?'\u2713 your team completed it':'\u2717 your team failed it')+'</span>':'')+'</div></div>'}).join(''):'<div class="mu" style="margin-top:6px">No challenges at this station.</div>');return}
  if(!r){p.innerHTML='<span class="mu">Tap a station to see its coins and add yours. The number is the current lead (max 5) and the colour shows who is ahead.</span>';return}
  if(!$('ps-top')||$('ps-top').dataset.id!==r.id){p.innerHTML='<div id="ps-top" data-id="'+esc(r.id)+'"></div><div id="ps-spend"></div>';soft=false;S.amt='1'}
  const L=S.board.lead[r.id],v=L?L.n:0,t=L?TC(L.t):null,cells=[],tk=ACT(),sv=L?(L.t==='B'?-v:v):0;
  if(tk.length===2){for(let i=-MAXLEAD;i<=MAXLEAD;i++){let bg='';if(i===0)bg='var(--mu)';else if(sv>0&&i>0&&i<=sv)bg=TC('A').color;else if(sv<0&&i<0&&i>=sv)bg=TC('B').color;cells.push('<i'+(bg?' style="background:'+esc(bg)+'"':'')+'></i>')}}
  else{for(let i=1;i<=MAXLEAD;i++)cells.push('<i'+(L&&i<=v?' style="background:'+esc(t.color)+'"':'')+'></i>')}
- $('ps-top').innerHTML='<b>'+esc(r.name)+'</b><div>'+chips(r)+'</div><div style="margin-top:6px">'+(t?'<span class="dot" style="background:'+esc(t.color)+'"></span> <b>'+esc(t.name)+'</b> leads by <b>'+Math.abs(v)+'</b> of '+MAXLEAD:'Level at <b>0</b>')+'</div><div class="meter">'+cells.join('')+'</div>'+(tk.length===2?'<div class="mu" style="display:flex;justify-content:space-between"><span>&#9664; '+esc(TC('B').name)+'</span><span>'+esc(TC('A').name)+' &#9654;</span></div>':'<div class="mu">Coins from any team other than the leader reduce the lead for every trailing team.</div>');
+ $('ps-top').innerHTML='<div class="row" style="margin:0"><b class="sp">'+esc(r.name)+'</b>'+XB+'</div><div>'+chips(r)+'</div><div style="margin-top:6px">'+(t?'<span class="dot" style="background:'+esc(t.color)+'"></span> <b>'+esc(t.name)+'</b> leads by <b>'+Math.abs(v)+'</b> of '+MAXLEAD:'Level at <b>0</b>')+'</div><div class="meter">'+cells.join('')+'</div>'+(tk.length===2?'<div class="mu" style="display:flex;justify-content:space-between"><span>&#9664; '+esc(TC('B').name)+'</span><span>'+esc(TC('A').name)+' &#9654;</span></div>':'<div class="mu">Coins from any team other than the leader reduce the lead for every trailing team.</div>');
  {const lv=liveAt(r.id);if(lv)$('ps-top').insertAdjacentHTML('beforeend',lv)}
  const f=document.activeElement;if(soft&&f&&f.id==='amt')return;
  const sp=$('ps-spend'),mt=myTeam();let h='';
