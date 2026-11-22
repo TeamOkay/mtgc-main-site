@@ -165,7 +165,7 @@ function paint(){const cm=S.msub==='chal',lv=liveSt(),pk=S.board.pink&&S.board.p
 function renderMsub(){$('msub').innerHTML=[['coins','Gameboard'],['chal','Challenge Bank']].map(([k,l])=>'<button data-m="'+k+'" class="'+(S.msub===k?'on':'')+'">'+l+'</button>').join('');
  $('msub').querySelectorAll('button').forEach(b=>b.onclick=()=>{S.msub=b.dataset.m;$('pop').innerHTML='';renderMsub();paint();renderPop()})}
 const chips=r=>r.lines.map(l=>'<span class="chip" style="border-color:'+LC[l].color+'">'+esc(LC[l].name)+'</span>').join('');
-const XB='<button class="chip" data-closepop="1" aria-label="Close" title="Close" style="cursor:pointer;background:transparent;color:inherit;padding:2px 9px;font-size:16px;line-height:1">\u2715</button>';
+const XB='<button class="chip" data-closepop="1" aria-label="Close" title="Close" style="cursor:pointer;background:transparent;color:inherit;padding:2px 9px;margin-right:48px;font-size:16px;line-height:1">\u2715</button>';
 function renderPop(soft){const p=$('pop'),r=ST[S.sel];
  if(S.msub==='chal'){
   if(!r){p.innerHTML='<span class="mu">Tap a station to see the challenges there. The orange number is how many challenges in the bank are at each station.</span>';return}
