@@ -1,0 +1,26 @@
+"""The station panel under the map (Gameboard and Challenge Bank) has an X that closes it."""
+from harness import *
+w=World(); c=Check()
+w.user('u1')
+gid=host_game(w,'u1','rail-rush','Close','pw1',host='Hana',city='boston')
+fh=w.frame('u1')
+ids=fh.evaluate("NET.regions.map(r=>r.id)")
+w.docs[f'games/{gid}/challenges/c0']={'title':'Chal 0','description':'','type':'standard','reward':10,'loc':[ids[0]],'locText':'','anywhere':False,'order':0}
+w.pump(600)
+fh.click('#nav button:has-text("Map")'); w.pump(250)
+for mode,label in (('chal','Challenge Bank'),('coins','Gameboard')):
+    fh.click(f'#msub button[data-m="{mode}"]'); w.pump(300)
+    fh.evaluate("(()=>{S.sel=null;paint();renderPop()})()"); w.pump(150)
+    c(f'{label}: no X before a station is selected',fh.locator('#pop [data-closepop]').count()==0)
+    fh.evaluate(f"(()=>{{S.sel='{ids[0]}';paint();renderPop()}})()"); w.pump(200)
+    c(f'{label}: X shows with a station selected',fh.locator('#pop [data-closepop]').count()==1)
+    c(f'{label}: station name still shown',fh.evaluate("NET.regions[0].name") in fh.inner_text('#pop'))
+    fh.click('#pop [data-closepop]'); w.pump(250)
+    c(f'{label}: X clears the selection',fh.evaluate("S.sel")is None)
+    c(f'{label}: panel returns to the tap-a-station hint',fh.locator('#pop [data-closepop]').count()==0 and 'Tap a station' in fh.inner_text('#pop'),fh.inner_text('#pop')[:80])
+    c(f'{label}: station no longer highlighted',fh.evaluate("dots.every(d=>d.c.getAttribute('stroke-width')!=='4')"))
+    fh.evaluate(f"(()=>{{S.sel='{ids[1]}';paint();renderPop()}})()"); w.pump(200)
+    c(f'{label}: another station can be selected after closing',fh.locator('#pop [data-closepop]').count()==1)
+print([e for e in w.errors if 'TUNNEL' not in e][:3])
+print(f'{c.n-len(c.fail)}/{c.n} passed; failed: {c.fail}')
+w.close()
