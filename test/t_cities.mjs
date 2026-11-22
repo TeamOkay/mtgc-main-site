@@ -42,7 +42,8 @@ for (const k of ['montreal-augmented', 'montreal-base']) {
   ok(k + ' REM A3 to Anse-à-l\'Orme, A4 to Deux-Montagnes', r.branches.length === 2 && r.branches[0].name === 'A3' && ends(k, r.branches[0].order) === "Bois-Franc > Anse-à-l'Orme" && r.branches[1].name === 'A4' && ends(k, r.branches[1].order) === 'Bois-Franc > Deux-Montagnes');
 }
 ok('Montréal-Base lines', M['montreal-base'].lines.map(l => l.id).sort().join() === '1,2,4,5,REM', M['montreal-base'].lines.map(l => l.id));
-ok('Montréal-Augmented keeps buses', ['439', '747', '815', '209', '215', '121'].every(id => L('montreal-augmented', id)));
+ok('Montréal-Augmented keeps buses', ['439', '747', '209', '215', '121'].every(id => L('montreal-augmented', id)));
+ok('Montréal-Augmented has no 815 (the 209 replaces it)', !L('montreal-augmented', '815') && !M['montreal-augmented'].regions.some(r => r.lines.includes('815')));
 // Montréal-Augmented edits
 { const k = 'montreal-augmented', st = id => M[k].regions.find(r => r.id === id), l121 = L(k, '121');
   ok('Montpellier replaces Côte-Vertu & Muir on the 121 and is kept as an interchange', st('montpellier') && !st('cote-vertu-muir') && l121.order.includes('montpellier'), l121.order.length);
@@ -54,7 +55,13 @@ ok('Montréal-Augmented keeps buses', ['439', '747', '815', '209', '215', '121']
   ok('35: Monk to Place-Saint-Henri, 5 of 14 intermediate stops removed (11 left)', ends2('35', 'monk', 'place-saint-henri', 11), L(k, '35').order.length);
   ok('206 now ends at Des Sources & Anselme-Lavigne (10 of 19 stops removed, 9 left), not at Pierrefonds–Roxboro', ends2('206', 'fairviewpointe-claire', 'des-sources-anselme-lavigne', 9) && !st('pierrefondsroxboro').lines.includes('206'), L(k, '206').order.length);
   ok('206 shares the Des Sources & Anselme-Lavigne stop with the 209', L(k, '206').order.includes('des-sources-anselme-lavigne') && st('des-sources-anselme-lavigne').lines.sort().join() === '206,209');
-  ok('every new bus stop has coordinates in the Montréal area and is on its line', ['141', '12', '35', '206', '48'].every(id => L(k, id).order.every(s => { const r = st(s); return r && r.c[0] < -73.4 && r.c[0] > -74 && r.c[1] > 45.3 && r.c[1] < 45.8 && r.lines.includes(id); })));
+  { const o = L(k, '209').order;
+    ok('209 runs YUL to Pierrefonds–Roxboro via Des Sources', o[0] === 'yul-aeroport-montreal-trudeau' && o[o.length - 1] === 'pierrefondsroxboro' && o.includes('des-sources'), o.length);
+    ok('209 north of Des Sources unchanged (13 stops after Des Sources)', o.length - 1 - o.indexOf('des-sources') === 13, o.indexOf('des-sources'));
+    ok('209 between Des Sources and YUL: 24 stops minus 11 = 13', o.indexOf('des-sources') - 1 === 13, o.indexOf('des-sources'));
+    ok('209 keeps Terminus Dorval, next to YUL', o[1] === 'terminus-dorval' && st('terminus-dorval').lines.join() === '209');
+    ok('209 shares YUL with the 747', st('yul-aeroport-montreal-trudeau').lines.sort().join() === '209,747'); }
+  ok('every new bus stop has coordinates in the Montréal area and is on its line', ['141', '12', '35', '206', '48', '209'].every(id => L(k, id).order.every(s => { const r = st(s); return r && r.c[0] < -73.4 && r.c[0] > -74 && r.c[1] > 45.3 && r.c[1] < 45.8 && r.lines.includes(id); })));
   ok('no two stops share a position by accident', (() => { const seen = new Map(); for (const id of ['141', '12', '35', '206']) for (const s of L(k, id).order) { const r = st(s), key = r.c.join(); if (seen.has(key) && seen.get(key) !== s) return false; seen.set(key, s); } return true; })());
   ok('121 thinned from 20 to 10 stops, all interchanges kept', l121.order.length === 10 && ['sauve', 'montpellier', 'cote-vertu'].every(s => l121.order.includes(s)), l121.order.length);
   ok('121 order runs Sauvé, Montpellier, Côte-Vertu', l121.order[0] === 'sauve' && l121.order.indexOf('montpellier') > 0 && l121.order.indexOf('montpellier') < 9 && l121.order[9] === 'cote-vertu');

@@ -93,8 +93,13 @@ export function cityMaps(NETS) {
   };
   thinBus(b121, ['sauve', 'montpellier', 'cote-vertu'], 10);
   thinBus(ml.find(l => l.id === '215'), ['cote-vertu', 'bois-franc'], 1);
-  const mb = mtlBuses(reg, { '141': 33, '35': 5, '206': 10 });   // buses 141, 35, 206 thinned; 12 as is
-  ml.push(...mb.lines);
+  const mb = mtlBuses(reg, { '141': 33, '35': 5, '206': 10, '209': 11 });   // buses 141, 35, 206 and the 209's southern stretch thinned; 12 as is
+  // the 815 is replaced by the 209, which now runs Pierrefonds–Roxboro > Des Sources > YUL (northern stops as they were)
+  const s209 = mb.lines.find(l => l.id === '209'), l209 = ml.find(l => l.id === '209');
+  if (l209.order[0] !== 'des-sources' || s209.order[0] !== 'des-sources') throw new Error('209 start');
+  l209.order = s209.order.slice(1).reverse().concat(l209.order);
+  ml.splice(ml.findIndex(l => l.id === '815'), 1);
+  ml.push(...mb.lines.filter(l => l.id !== '209'));
   out['montreal-augmented'] = build('Montréal-Augmented', 'montreal', ml, mb.regions, over, { 'pie-ix-d-amos': 'Pie-IX & Henri-Bourassa' });
   out['montreal-base'] = build('Montréal-Base', 'montreal', ['1', '2', '4', '5', 'REM'].map(id => ml.find(l => l.id === id)), [], over);
   return out;
