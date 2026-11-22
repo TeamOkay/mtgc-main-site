@@ -1,10 +1,11 @@
-// Stop-by-stop Montréal bus lines added to Montréal-Augmented: 141, 12, 35 and the (2026-network) 206.
+// Stop-by-stop Montréal bus lines added to Montréal-Augmented: 141, 12, 35, 48/49, the (2026-network) 206, and the 209's stretch from Des Sources to YUL.
 // Stop names/order come from STM route listings. STM's coordinate file was not reachable, so stops are placed APPROXIMATELY:
 // items with `c` (or an existing station `id`) are anchors; the stops between two anchors are spaced evenly along the straight line.
 // Replace with real GTFS stop coordinates when available.
 const slug = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/&/g, ' ').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 const E = id => ({ id });                       // an existing station (the stop is merged into it)
 const S = (n, c) => (c ? { n, c } : { n });     // a new stop (c = approximate [lon, lat] anchor)
+const K = (n, c) => Object.assign(S(n, c), { keep: true });   // a new stop that thinning never removes
 
 export const ROUTES = [
   { id: '141', name: '141 Saint-Michel / Honoré-Beaugrand (bus)', color: '#7cb342', stops: [
@@ -42,6 +43,15 @@ export const ROUTES = [
     S('Roger-Pilon & Tecumseh'), S('Roger-Pilon & Fredmir'), S('Roger-Pilon & Manuel'), S('Roger-Pilon & Westpark'),
     S('Westpark & Wilson'), S('Westpark & Anselme-Lavigne'), S('Anselme-Lavigne & Oslo'), S('Anselme-Lavigne & Greenview'),
     E('des-sources-anselme-lavigne')] },
+  { id: '209', name: '209 Des Sources (bus)', color: '#3949ab', stops: [   // the stretch Des Sources -> YUL only (merged into the 209 in cities.mjs; the 815 is gone)
+    E('des-sources'),
+    S('Des Sources & Transcanadienne'), S('Des Sources & Avro'), S("Des Sources & de l'Aviation"), S('Des Sources & Gérald-Hervey'), S('Des Sources & Reverchon'),
+    S('Des Sources & 1733'), S('Des Sources & Belmont'), S('Des Sources & Chanteclerc', [-73.7820, 45.4455]),
+    S('Bord-du-Lac & Lakebreeze'), S("Bord-du-Lac & de l'Église"), S('Bord-du-Lac & Lake'), S('Bord-du-Lac & Thrush'), S('Bord-du-Lac & Neptune', [-73.7600, 45.4408]),
+    S('Dawson & Stream', [-73.7518, 45.4420]), S('Dawson & Saint-Louis'), S('Dawson & Thorncrest'), S('Dawson & École Dorval-Jean-XXIII'), S('Dawson & Claude'),
+    S('Dawson & Fénelon'), S('Dawson & Lepage'), S('Dawson & Garden', [-73.7510, 45.4467]), S('Dorval & Dawson'), S('Dorval & Carson'),
+    K('Terminus Dorval', [-73.7468, 45.4479]),
+    E('yul-aeroport-montreal-trudeau')] },
 ];
 
 /** Builds { lines, regions } for the routes above. `byId` looks up an existing station by id. */
@@ -50,7 +60,7 @@ export function mtlBuses(byId, remove = {}) {
   for (const R of ROUTES) {
     const pts = R.stops.map(s => {
       if (s.id) { const r = byId(s.id); if (!r) throw new Error('missing station ' + s.id + ' for ' + R.id); return { id: s.id, c: r.c }; }
-      return { id: slug(s.n), n: s.n, c: s.c || null };
+      return { id: slug(s.n), n: s.n, c: s.c || null, keep: !!s.keep };
     });
     pts.forEach((p, i) => {
       if (p.c) return;
@@ -64,7 +74,7 @@ export function mtlBuses(byId, remove = {}) {
         p.c = d <= up ? [A[0], A[1] + (B[1] - A[1]) * (d / up)] : [A[0] + (B[0] - A[0]) * ((d - up) / right), B[1]]; p.c = p.c.map(v => Math.round(v * 1e4) / 1e4); }); };
     if (R.elbow) onL(pts);
     let keep = pts;
-    if (remove[R.id]) keep = thinEven(pts, p => p.c, p => !p.n, remove[R.id]);
+    if (remove[R.id]) keep = thinEven(pts, p => p.c, p => !p.n || p.keep, remove[R.id]);
     if (R.elbow) onL(keep);
     keep.forEach(p => { if (p.n) { if (seen.has(p.id) || byId(p.id)) throw new Error('duplicate stop id ' + p.id); seen.add(p.id); regions.push({ id: p.id, name: p.n, c: p.c, lines: [], pt: 1 }); } });
     lines.push({ id: R.id, name: R.name, color: R.color, rail: false, order: keep.map(p => p.id) });
