@@ -376,8 +376,11 @@ function planPicks(trig,n,ex){const rnd=mulberry(hstr(S.gid+':'+trig+':c')),spec
   locs.forEach(i=>occ.add(i));pool=pool.filter(x=>x.id!==c.id);picks.push({c:c.id,title:c.title,locs})}
  return picks}
 function planPink(trig){const rnd=mulberry(hstr(S.gid+':'+trig+':p')),spec=specSt(),occ=occSt(),B=S.board;
- const l6=new Set(((NET.lines.find(l=>l.id==='6')||{}).order)||[]),all=NET.regions.map(r=>r.id).filter(i=>(!spec.has(i)||l6.has(i))&&!occ.has(i));
- const c=all.filter(i=>i!==B.lastPink),from=c.length?c:all;return from.length?from[Math.floor(rnd()*from.length)]:null}
+ const l6=new Set(((NET.lines.find(l=>l.id==='6')||{}).order)||[]),every=NET.regions.map(r=>r.id);
+ /* prefer a station no challenge names, never the one it just left; with a big challenge bank that pool can be empty or just the old station, so widen it step by step */
+ const tiers=[i=>(!spec.has(i)||l6.has(i))&&!occ.has(i)&&i!==B.lastPink,i=>!occ.has(i)&&i!==B.lastPink,i=>i!==B.lastPink,i=>!occ.has(i),()=>true];
+ for(const t of tiers){const from=every.filter(t);if(from.length)return from[Math.floor(rnd()*from.length)]}
+ return null}
 const sentSp=new Set();
 function ensureSpawns(){if(!S.db||!S.gid||RO()||!S.chalOk||!S.board.started)return;const p=(S.board.pend||[])[0];if(!p)return;
  const key=S.gid+'|'+p.id+'|'+p.k;if(sentSp.has(key))return;sentSp.add(key);
