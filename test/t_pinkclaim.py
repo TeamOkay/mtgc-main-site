@@ -13,7 +13,7 @@ ids=fr['u1'].evaluate("NET.regions.map(r=>r.id)")
 for i in range(10):
     w.docs[f'games/{gid}/challenges/c{i:02d}']={'title':f'Chal {i}','description':'','type':'standard','reward':10,'loc':ids[i*5:i*5+3],'locText':'','anywhere':False,'order':i}
 w.pump(600)
-tab(fr['u1'],'Host'); fr['u1'].click('#sg2'); w.pump(300); fr['u1'].click('#ac-y'); w.pump(3500)
+tab(fr['u1'],'Host'); fr['u1'].check('#pon'); w.pump(500); fr['u1'].click('#sg2'); w.pump(300); fr['u1'].click('#ac-y'); w.pump(3500)
 for _ in range(20):
     if fr['u1'].evaluate('S.board.pink'): break
     w.pump(500)
