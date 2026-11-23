@@ -585,6 +585,7 @@ button.game:hover{border-color:var(--mute)}
       createdAt: Date.now(), lastActive: Date.now(), status: "active", spectators: false
     }, secret);
     if (v.city) g.city = v.city;
+    if (t.id === "rail-rush") g.pinkOn = false; // Get here! is opt-in; games without this field keep it on
     lsSet("tg.name", v.name);
     try {
       await db.doc("games/" + gid).set(g);
