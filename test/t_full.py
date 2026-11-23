@@ -114,7 +114,7 @@ goto_home(w,'u2')
 # ---------- 6. spectators off again locks out non-members ----------
 tab(fh,'Host'); fh.uncheck('#acc-spec'); w.pump(600)
 c('spectators off saved',w.games()[RR]['spectators'] is False)
-goto_home(w,'u3'); pr=join_from_list(w,'u3',RR); c('non-member refused: game already started (no password prompt)',(not pr) and 'started' in U['u3'].inner_text('#ov').lower()); U['u3'].click('#ok'); w.pump(200)
+goto_home(w,'u3'); pr=join_from_list(w,'u3',RR); c('non-member after start: asked for the password (not refused outright)',bool(pr)); U['u3'].click('#px'); w.pump(300); c('...and cancelling adds no membership',f'games/{RR}/members/u3' not in w.docs)
 
 # ---------- 7. Area Claiming ----------
 goto_home(w,'u2'); join_from_list(w,'u2',AC,pw='secret'); fa=w.frame('u2')
