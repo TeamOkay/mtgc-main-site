@@ -119,7 +119,7 @@ function fold(evs,cut){
    log.push(Object.assign(base,{kind:k,reward:r,boost:boost>1,mult:boost,gain:g,call:c.call[t],ob,tb,from:o,taken,bal:copyBal(),hit:taken.map(x=>x.t)}));shut(e.chal,e)}
  }
  const pend=[];
- for(const t of trig){if((t.kind==='start'||t.kind==='ch'||t.kind==='ex')&&!t.c)pend.push({id:t.id,k:'c',kind:t.kind,ex:t.ex,at:t.at});if((t.kind==='start'||t.kind==='pk')&&!t.p)pend.push({id:t.id,k:'p',at:t.at})}
+ for(const t of trig){if((t.kind==='start'||t.kind==='ch'||t.kind==='ex')&&!t.c)pend.push({id:t.id,k:'c',kind:t.kind,ex:t.ex,at:t.at});if((t.kind==='start'||t.kind==='pk')&&!t.p)pend.push({id:t.id,k:'p',at:t.at,fb:t.kind==='pk'})}
  return{act,lead,bal,ch,log,live,where,used,closed,pink,lastPink,started,pend}}
 const recompute=()=>{const g=cur();S.board=fold(S.events,g&&g.status==='ended'?g.endedAt:null)};
 const textOn=h=>{const m=/^#?([0-9a-f]{6})$/i.exec(h||'');if(!m)return'#fff';const n=parseInt(m[1],16);return(0.299*(n>>16)+0.587*((n>>8)&255)+0.114*(n&255))>150?'#111':'#fff'};
@@ -289,7 +289,7 @@ function renderChal(){const f=document.activeElement;if(f&&f.closest&&f.closest(
  q('[data-lock]').forEach(b=>b.onclick=()=>{const id=b.dataset.lock,n=Math.floor(Number(S.cd[id]));if(!(n>=1))return;ev('call',id,{n});delete S.cd[id]});
  q('[data-done]').forEach(b=>arm(b,()=>{const c=S.chal.find(z=>z.id===b.dataset.done);if(c)ev('complete',c.id,{kind:typeOf(c),reward:num(c.reward)})}));
  q('[data-fail]').forEach(b=>arm(b,()=>ev('fail',b.dataset.fail)));
- q('[data-pink]').forEach(b=>arm(b,()=>{if(!S.db||!mt||RO()||!B.pink)return;S.db.collection(G()+'/events').add({type:'pinkdone',team:mt,pk:B.pink.id,reward:pinkReward(),by:S.me,at:Date.now()}).catch(e=>console.error(e))}))}
+ q('[data-pink]').forEach(b=>arm(b,()=>{if(!S.db||!mt||RO()||!B.pink)return;claimPink(mt,B.pink.id)}))}
 function form(){if(!S.host||RO()){$('chalform').innerHTML='';return}const c=S.chal.find(x=>x.id===S.edit)||{},ty=typeOf(c);
  const loc=c.anywhere?'Anywhere':(c.loc||[]).filter(i=>ST[i]).map(i=>ST[i].name).concat(c.locText?[c.locText]:[]).join('; ');
  $('chalform').innerHTML='<div class="card"><h3>'+(S.edit?'Edit':'Add')+' challenge</h3><input id="ct" placeholder="Title" value="'+esc(c.title)+'"><textarea id="cd" rows="2" placeholder="Description" style="margin-top:6px">'+esc(c.description)+'</textarea><select id="cy" style="margin-top:6px">'+Object.entries(KINDS).map(([k,n])=>'<option value="'+k+'"'+(k===ty?' selected':'')+'>'+n+'</option>').join('')+'</select><input id="cr" type="number" step="any" placeholder="Reward" value="'+esc(c.reward==null||c.reward==='?'?'':c.reward)+'" style="margin-top:6px"><div class="mu" id="chint" style="margin-top:4px"></div><input id="cl" placeholder="Location: stations separated by ; , or Anywhere" value="'+esc(loc)+'" style="margin-top:6px"><div class="mu" id="cm"></div><div class="row"><button class="pr" id="cs">'+(S.edit?'Save':'Add')+'</button>'+(S.edit?'<button id="cc">Cancel</button>':'')+'</div></div>';
@@ -382,11 +382,17 @@ function planPink(trig){const rnd=mulberry(hstr(S.gid+':'+trig+':p')),spec=specS
  for(const t of tiers){const from=every.filter(t);if(from.length)return from[Math.floor(rnd()*from.length)]}
  return null}
 const sentSp=new Set();
-function ensureSpawns(){if(!S.db||!S.gid||RO()||!S.chalOk||!S.board.started)return;const p=(S.board.pend||[])[0];if(!p)return;
+/* The team that claims Get here! writes the claim and the next station in one go, so only one client picks it. Other clients only step in (ensureSpawns, after PINK_GRACE) if the claimer never wrote it. Claimer's doc id 'pc_' sorts before any other spawn for the same claim, so every client agrees on it. */
+const PINK_GRACE=10000;
+function claimPink(team,pk){const at=Date.now(),id='pd'+at.toString(36)+Math.random().toString(36).slice(2,7),st=planPink(id);
+ const done={type:'pinkdone',team,pk,reward:pinkReward(),by:S.me,at},sp={type:'pinkspawn',trig:id,at:at+2,st,by:S.me};
+ S.db.doc(G()+'/events/'+id).set(done).then(()=>S.db.doc(G()+'/events/pc_'+id).set(sp)).catch(e=>console.error(e))}
+function ensureSpawns(){if(!S.db||!S.gid||RO()||!S.chalOk||!S.board.started)return;const now=Date.now(),wait=x=>x.fb?Math.max(0,x.at+PINK_GRACE-now):0,pd=S.board.pend||[],p=pd.find(x=>!wait(x));
+ if(!p){const w=Math.min(...pd.map(wait).filter(Boolean));if(isFinite(w)&&!ensureSpawns.t){ensureSpawns.t=setTimeout(()=>{ensureSpawns.t=0;ensureSpawns()},w+300)}return}
  const key=S.gid+'|'+p.id+'|'+p.k;if(sentSp.has(key))return;sentSp.add(key);
  const K=cfg();let n=p.kind==='start'?K.start:p.kind==='ex'?1:2;if(K.capOn)n=Math.max(0,Math.min(n,K.cap-Object.keys(S.board.live).length));
-  const doc=p.k==='c'?{type:'spawn',trig:p.id,at:p.at+1,wt:Date.now(),cap:K.capOn?K.cap:null,picks:n?planPicks(p.id,n,p.ex):[],by:S.me}:{type:'pinkspawn',trig:p.id,at:p.at+2,st:planPink(p.id),by:S.me};
- S.db.doc(G()+'/events/'+(p.k==='c'?'sp_':'pk_')+p.id).set(doc).catch(e=>{console.error(e);sentSp.delete(key)})}
+  const doc=p.k==='c'?{type:'spawn',trig:p.id,at:p.at+1,wt:Date.now(),cap:K.capOn?K.cap:null,picks:n?planPicks(p.id,n,p.ex):[],by:S.me}:{type:'pinkspawn',trig:p.id,at:p.at+(p.fb?3:2),st:planPink(p.id),by:S.me};
+ S.db.doc(G()+'/events/'+(p.k==='c'?'sp_':p.fb?'pf_':'pk_')+p.id).set(doc).catch(e=>{console.error(e);sentSp.delete(key)})}
 const sentEx=new Set();
 function checkExpiry(){const K=cfg();if(!K.expireOn||!S.db||!S.gid||RO()||!S.chalOk||!S.board.started)return;
  const now=Date.now(),ms=K.expireMin*60000;
