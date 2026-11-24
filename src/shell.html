@@ -108,6 +108,7 @@ button.game:hover{border-color:var(--mute)}
       <button class="btn" id="go-ongoing" type="button">View Ongoing Games</button>
       <button class="btn" id="go-past" type="button">View Past Games</button>
       <button class="btn" id="go-editor" type="button">Map Editor</button>
+      <button class="btn" id="go-admin" type="button" hidden>Admin</button>
     </div>
   </section>
 
@@ -173,7 +174,7 @@ button.game:hover{border-color:var(--mute)}
     return new Date(ms || 0).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
   }
 
-  var data = { state: "loading", me: null, games: [], hides: {}, mine: {}, mem: {}, busy: {} };
+  var data = { state: "loading", me: null, admin: false, adminP: Promise.resolve(), games: [], hides: {}, mine: {}, mem: {}, busy: {} };
   var DAY = 864e5, IDLE_RESET = DAY, IDLE_END = 7 * DAY;
   var db = null, cur = null, frames = {};
 
@@ -298,6 +299,7 @@ button.game:hover{border-color:var(--mute)}
     var g = await loadGame(gid);
     if (!g) return false;
     if (g.createdBy === data.me || await isMember(g)) return true;
+    if (data.admin) { await notice("Admin view", "You are viewing this game as an admin, so you are not listed as a player and cannot join a team."); return false; }
     if (!(await passwordDialog(g))) return false;
     await db.doc("games/" + g.id + "/members/" + data.me).set({ at: Date.now() });
     return true;
@@ -310,9 +312,11 @@ button.game:hover{border-color:var(--mute)}
     await db.doc("games/" + gid).update(await makeSecret(pw));
     return true;
   }
-  window.TG = { requirePassword: requirePassword, changePassword: changePassword, myName: function () { return lsGet("tg.name"); } };
+  window.TG = { isAdmin: function () { return !!data.admin; }, adminReady: function () { return data.adminP; }, openGame: function (id) { return enterGame(id); }, requirePassword: requirePassword, changePassword: changePassword, myName: function () { return lsGet("tg.name"); } };
 
   async function mayEnter(g) {
+    await data.adminP;
+    if (data.admin) return true; // admins can open any game; they are not added as members or players
     if (g.createdBy === data.me || g.status === "ended") return true;
     if (await isMember(g)) return true;
     if (g.spectators) return true;
@@ -558,6 +562,24 @@ button.game:hover{border-color:var(--mute)}
     Object.keys(frames).forEach(function (k) { frames[k].hidden = k !== key; });
     show("game");
   }
+  /* admin page: its own frame, only reachable through the Admin button (shown to accounts listed in admins/) */
+  function openAdmin() {
+    if (!data.admin) return;
+    var f = frames["admin"];
+    cur = { id: "__admin", name: "Admin" };
+    if (!f && HTML["admin"]) {
+      f = document.createElement("iframe");
+      f.className = "frame";
+      f.title = "Admin";
+      f.addEventListener("load", function () { syncTheme(f); });
+      f.srcdoc = HTML["admin"].split("__TGID__").join("");
+      $("stage").appendChild(f);
+      frames["admin"] = f;
+    }
+    if (!f) return;
+    Object.keys(frames).forEach(function (k) { frames[k].hidden = k !== "admin"; });
+    show("game");
+  }
   function mapFromHash() {
     var m = /^#map=([A-Za-z0-9_-]{3,60})$/.exec(location.hash || "");
     return m ? m[1] : "";
@@ -645,6 +667,8 @@ button.game:hover{border-color:var(--mute)}
       if (!user || !d) { data.state = "out"; renderOngoing(); renderPast(); return; }
       db = d;
       data.me = await user.id();
+      /* admin check: admins/{uid} exists (rules let each account read only its own entry) */
+      data.adminP = db.doc("admins/" + data.me).get().then(function (x) { data.admin = !!x.exists; $("go-admin").hidden = !data.admin; }, function () { data.admin = false; });
       data.state = "in";
       renderOngoing(); renderPast();
       db.collection("games").onSnapshot(function (q) {
@@ -666,6 +690,7 @@ button.game:hover{border-color:var(--mute)}
   $("go-ongoing").onclick = function () { renderOngoing(); show("ongoing"); };
   $("go-past").onclick = function () { renderPast(); show("past"); };
   $("go-editor").onclick = function () { openEditor(""); };
+  $("go-admin").onclick = function () { openAdmin(); };
   window.addEventListener("hashchange", function () { var m = mapFromHash(); if (m) openEditor(m); });
   if (mapFromHash()) openEditor(mapFromHash());
   $("brand").onclick = function () { show("home"); };
@@ -702,6 +727,7 @@ button.game:hover{border-color:var(--mute)}
           '<div class="row"><button type="button" class="btn" id="ac-g">Continue with Google</button></div>' +
           '<div class="row"><button type="button" class="btn" id="ac-x">Close</button></div>'
         : '<h2>' + esc(i.name || "Account") + '</h2><p>You are signed in. Your games follow you to any device where you sign in.</p>' +
+          '<p class="note">Your ID (for adding an admin): <code id="ac-id" style="word-break:break-all">' + esc(i.uid || "") + '</code></p>' +
           '<div class="row"><button type="button" class="btn" id="ac-x">Close</button><button type="button" class="btn btn-go" id="ac-out">Sign out</button></div>';
       dialog(html, function (root, done) {
         function go(fn) {

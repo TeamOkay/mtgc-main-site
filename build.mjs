@@ -26,6 +26,11 @@ for (const k of ['rail-rush', 'area-claiming', 'ticket-to-ride']) {
   ed = ed.replace('/*__BUILTINS__*/{}', () => cities);
   games['map-editor'] = ed.slice(0, k0) + SHIM + ed.slice(k0);
 }
+/* Admin page: same wrapper as the other pages; only shown to admins (see firestore.rules: admins/{uid}). */
+{
+  const ad = rd('src/admin.html'), k0 = ad.toLowerCase().indexOf('<head>') + '<head>'.length;
+  games['admin'] = ad.slice(0, k0) + SHIM + ad.slice(k0);
+}
 const blob = JSON.stringify(games).replace(/<\//g, '<\\/').split(String.fromCharCode(8232)).join('\\u2028').split(String.fromCharCode(8233)).join('\\u2029');
 let shell = rd('src/shell.html');
 if (shell.split('__HTML__').length !== 2 || shell.split('/*__PLATFORM__*/').length !== 2) throw new Error('shell placeholders missing');
