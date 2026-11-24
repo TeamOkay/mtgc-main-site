@@ -39,8 +39,8 @@ section{flex:1;min-height:0;overflow:auto;padding:0 12px 12px}section.hide{displ
 <section id="t-teams" class="hide"><div id="me"></div><div id="teams"></div></section>
 <section id="t-host" class="hide">
 <div class="card" id="access"><h3>Access</h3><div class="mu" id="acc-st"></div><label class="row" style="gap:8px"><input type="checkbox" id="acc-spec" style="width:auto"> Allow spectators</label><div class="mu">With spectators on, anyone can watch and the password is only needed to join a team. With it off, the password is needed to open the game at all.</div><div class="row"><button id="acc-pw">Change password</button><span class="mu" id="acc-msg"></span></div></div>
-<div id="hostteams"></div><div id="hostcoins"></div>
-<div class="card"><h3>Game</h3><div class="mu" id="gst"></div><div class="mu" style="margin-top:8px"><b>End the game automatically</b></div><div class="row"><select id="endsel" style="width:auto"><option value="">No &mdash; I will end it myself</option><option value="duration">After a set amount of time</option><option value="time">At a set date and time</option></select></div><div class="row hide" id="end-dur"><input id="endh" type="number" min="0" step="1" style="width:70px"> h <input id="endm" type="number" min="0" max="59" step="1" style="width:70px"> min <span class="mu">from when you press Start</span></div><div class="row hide" id="end-at"><input id="endat" type="datetime-local"> <span class="mu">your local time</span></div><div class="row"><button id="ends">Save end time</button><span class="mu" id="endmsg"></span></div><div class="row"><button class="pr" id="sg2">Start Game</button></div><div class="row" style="margin-top:8px"><label><input type="checkbox" id="pon"> Enable &ldquo;Get here!&rdquo;</label></div><div class="mu" style="margin-top:8px">&ldquo;Get here!&rdquo; reward (coins)</div><div class="row"><input id="pr" type="number" min="0" step="1" style="width:100px"><button id="prs">Save</button><span class="mu" id="pm"></span></div></div>
+<div id="hostteams"></div><div id="hostspec"></div><div id="hostcoins"></div>
+<div class="card"><h3>Game</h3><div class="mu" id="gst"></div><div class="mu" style="margin-top:8px"><b>End the game automatically</b></div><div class="row"><select id="endsel" style="width:auto"><option value="">No &mdash; I will end it myself</option><option value="duration">After a set amount of time</option><option value="time">At a set date and time</option></select></div><div class="row hide" id="end-dur"><input id="endh" type="number" min="0" step="1" style="width:70px"> h <input id="endm" type="number" min="0" max="59" step="1" style="width:70px"> min <span class="mu">from when you press Start</span></div><div class="row hide" id="end-at"><input id="endat" type="datetime-local"> <span class="mu">your local time</span></div><div class="row"><button id="ends">Save end time</button><span class="mu" id="endmsg"></span></div><div class="row"><button class="pr" id="sg2">Start Game</button></div><div class="row" style="margin-top:8px"><label><input type="checkbox" id="pon"> Enable &ldquo;Get here!&rdquo;</label> <span class="mu" id="ponm"></span></div><div class="mu" style="margin-top:8px">&ldquo;Get here!&rdquo; reward (coins)</div><div class="row"><input id="pr" type="number" min="0" step="1" style="width:100px"><button id="prs">Save</button><span class="mu" id="pm"></span></div></div>
 <div class="card" id="pace"><h3>Challenge pacing</h3><label class="row" style="gap:8px"><input type="checkbox" id="pc-capon" style="width:auto"> Limit how many challenges are on the board</label><div class="row"><span class="mu">Maximum on the board</span><input id="pc-cap" type="number" min="1" step="1" style="width:90px"></div><div class="mu">When a challenge is finished it is replaced by up to 2 new ones, never going over the limit. With the limit off the board keeps growing.</div><div class="row" style="margin-top:12px"><span class="mu">Challenges at the start</span><input id="pc-start" type="number" min="1" step="1" style="width:90px"></div><div class="mu">Used when the game starts and after &ldquo;Reset all challenges&rdquo;.</div><label class="row" style="gap:8px;margin-top:12px"><input type="checkbox" id="pc-expon" style="width:auto"> Auto-expire challenges</label><div class="row"><span class="mu">Expire after (minutes)</span><input id="pc-expm" type="number" min="1" step="1" style="width:90px"></div><div class="mu">A challenge still on the board after that long goes back in the bank (shots called and fails are cleared) and one new challenge goes live.</div><div class="row"><button class="pr" id="pc-save">Save</button><span class="mu" id="pc-msg"></span></div></div>
 <div id="hostimport"></div>
 <div class="card"><h3>Reset stations</h3><div class="mu">Sets every station back to 0 for both teams. History is kept.</div><div class="row"><button class="dg" id="rc">Reset all stations</button></div></div>
@@ -152,7 +152,9 @@ svg.addEventListener('wheel',e=>{e.preventDefault();zoom(e.deltaY>0?1.2:1/1.2,e.
 const mid=()=>{const r=svg.getBoundingClientRect();return[r.left+r.width/2,r.top+r.height/2]};
 $('pop').addEventListener('click',e=>{if(e.target.closest('[data-closepop]')){S.sel=null;paint();renderPop()}});
 $('zi').onclick=()=>zoom(1/1.5,...mid());$('zo').onclick=()=>zoom(1.5,...mid());
-const locsOf=c=>(S.board.where&&S.board.where[c.id])||(c.anywhere?[]:(c.loc||[]));
+const lineSts=id=>{const l=LC[id];if(!l)return[];const o=[];[l.order].concat((l.branches||[]).map(b=>b.order)).forEach(a=>(a||[]).forEach(i=>{if(ST[i]&&!o.includes(i))o.push(i)}));return o};
+const candOf=c=>{if(c.anywhere)return[];const o=(c.loc||[]).slice();(c.lines||[]).forEach(l=>lineSts(l).forEach(i=>{if(!o.includes(i))o.push(i)}));return o};
+const locsOf=c=>(S.board.where&&S.board.where[c.id])||candOf(c);
 const chalsAt=id=>S.chal.filter(c=>!S.board.closed.has(c.id)&&locsOf(c).includes(id));
 const liveSt=()=>{const z=new Set();Object.values(S.board.live).forEach(l=>l.locs.forEach(i=>z.add(i)));return z};
 const pinkReward=()=>{const g=cur();return g&&g.pinkReward!=null?Number(g.pinkReward)||0:20};
@@ -224,11 +226,24 @@ function renderTeams(){const mt=myTeam(),p=S.players[povUid()]||{},tk=ACT(),cnt=
  const f=document.activeElement;
  if(!(f&&f.id==='pn')){
   const lk=teamsLocked(),jb=k=>{const t=TC(k),on=mt===k;return '<button id="j'+k+'"'+(lk&&!on?' disabled':'')+' style="'+(lk&&!on?'opacity:.45;':'')+(on?'background:'+esc(t.color)+';border-color:'+esc(t.color)+';color:'+textOn(t.color):'border-color:'+esc(t.color))+'">'+(on?'You are on ':'Join ')+esc(t.name)+'</button>'};
-  $('me').innerHTML=RO()?'':S.db?'<div class="card"><h3>You</h3><input id="pn" placeholder="Your name" value="'+esc(p.name||'')+'"><div class="row">'+tk.map(jb).join('')+'</div><div class="mu" style="margin-top:6px">'+(lk?(mt?'The game has started, so teams are locked.':'The game has started, so teams are locked. You are watching.'):canJoin()?(mt?'Switch teams any time.':(p.team&&!tk.includes(p.team)?'Your team was removed by the host. Pick a team to keep playing.':'Pick a team to start adding coins.')):'You are watching this game. Joining a team needs the game password.')+'</div></div>':'<div class="card mu">Sign in to join the game.</div>';
-  tk.forEach(k=>{const b=$('j'+k);if(b)b.onclick=()=>joinTeam(k,p)})}
+  $('me').innerHTML=RO()?'':S.db?'<div class="card"><h3>You</h3><input id="pn" placeholder="Your name" value="'+esc(p.name||'')+'"><div class="row">'+tk.map(jb).join('')+(lk&&!mt?(canJoin()?'<button id="sn">Save name</button>':'<button id="jp">Enter password</button>'):'')+'</div><div class="mu" style="margin-top:6px">'+(lk?(mt?'The game has started, so teams are locked.':canJoin()?'The game has started, so teams are locked. You are watching; the host can add you to a team.':'The game has started, so teams are locked. You are watching. Enter the game password to join as a participant; the host can then add you to a team.'):canJoin()?(mt?'Switch teams any time.':(p.team&&!tk.includes(p.team)?'Your team was removed by the host. Pick a team to keep playing.':'Pick a team to start adding coins.')):'You are watching this game. Joining a team needs the game password.')+'</div></div>':'<div class="card mu">Sign in to join the game.</div>';
+  tk.forEach(k=>{const b=$('j'+k);if(b)b.onclick=()=>joinTeam(k,p)});
+  if($('sn'))$('sn').onclick=()=>{const n=$('pn').value.trim()||'Player';S.db.doc(G()+'/players/'+S.me).set(Object.assign({},p,{name:n})).catch(e=>console.error(e))};
+  if($('jp'))$('jp').onclick=async()=>{await window.parent.TG.requirePassword(S.gid)}}
+ autoReg();renderSpec();
  $('teams').innerHTML=tk.map(k=>{const t=TC(k),m=Object.values(S.players).filter(x=>x.team===k).map(x=>esc(x.name||'Player'));
   return '<div class="card"><div class="row" style="margin:0"><span class="dot" style="background:'+esc(t.color)+'"></span><b class="sp">'+esc(t.name)+(mt===k?' (your team)':'')+'</b><b>\u{1FA99} '+S.board.bal[k]+'</b></div><div class="mu">'+cnt[k]+' stations led &middot; '+coins[k]+' coins on the map</div><div class="mu">'+(m.length?m.join(', '):'No members yet')+'</div></div>'}).join('');
  if(S.host)tk.forEach(k=>{const e=$('hb_'+k);if(e)e.textContent=S.board.bal[k]})}
+/* a member who joined after the game started has no team and cannot pick one; give them a name entry so the host can add them */
+function autoReg(){if(!S.db||!S.me||!S.gid||S.host||RO()||!S.board.started||!S.members.has(S.me)||S.players[S.me]||S.regKey===S.gid)return;S.regKey=S.gid;
+ const T=window.parent&&window.parent.TG,nm=(T&&T.myName&&T.myName())||'Player',ref=S.db.doc(G()+'/players/'+S.me);
+ ref.get().then(d=>{if(!d.exists)return ref.set({name:nm})}).catch(e=>{console.error(e);S.regKey=null})}
+function renderSpec(){const h=$('hostspec');if(!h)return;if(!S.host||!S.db||RO()){h.innerHTML='';return}
+ const tk=ACT(),w=Object.entries(S.players).filter(([u,x])=>x&&!tk.includes(x.team)&&u!==S.me);
+ if(!w.length){h.innerHTML='';return}
+ const sig=w.map(([u,x])=>u+(x.name||'')).join('|')+tk.join('');if(h.dataset.k===sig)return;h.dataset.k=sig;
+ h.innerHTML='<div class="card"><h3>Players without a team</h3><div class="mu">People who joined without a team (for example after the game started). Add them to a team here.</div>'+w.map(([u,x])=>'<div class="row"><b class="sp">'+esc(x.name||'Player')+'</b>'+tk.map(k=>{const t=TC(k);return '<button data-addp="'+esc(u)+'" data-t="'+k+'" style="border-color:'+esc(t.color)+'">Add to '+esc(t.name)+'</button>'}).join('')+'</div>').join('')+'</div>';
+ h.querySelectorAll('[data-addp]').forEach(b=>b.onclick=()=>{const u=b.dataset.addp,x=S.players[u]||{};S.db.doc(G()+'/players/'+u).set({name:x.name||'Player',team:b.dataset.t}).catch(e=>console.error(e))})}
 function renderHost(){if(!S.host||!S.db||RO())return;
  const tk=ACT(),third=tk.length>2;
  $('hostteams').innerHTML='<div class="card"><h3>Teams</h3>'+tk.map(k=>{const t=TC(k);return '<div class="row"><input id="tn_'+k+'" value="'+esc(t.name)+'" style="flex:1;min-width:120px"><input type="color" id="tc_'+k+'" value="'+esc(t.color)+'"><button data-sv="'+k+'">Save</button></div>'}).join('')
@@ -242,12 +257,22 @@ function renderHost(){if(!S.host||!S.db||RO())return;
  $('hostcoins').querySelectorAll('[data-g]').forEach(b=>b.onclick=()=>S.db.collection(G()+'/events').add({type:'grant',team:b.dataset.g,n:Number(b.dataset.d),by:S.me,at:Date.now()}))}
 /* ---- challenges ---- */
 const norm=x=>String(x||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
-function parseLoc(txt){if(/^\s*anywhere\s*$/i.test(String(txt||''))){return{ids:[],miss:[],any:true}}
- const ids=[],miss=[],parts=String(txt||'').split(/[;\n]/).length>1||/;/.test(txt)?String(txt).split(/[;\n]/):String(txt||'').split(',');
- for(const raw of parts){const q=raw.trim();if(!q)continue;const n=norm(q);let m=NET.regions.filter(r=>r.id===q||norm(r.name)===n);
-  if(!m.length&&n.length>2){const f=NET.regions.filter(r=>norm(r.name).includes(n));if(f.length===1)m=f}
+const lineName=l=>l.name||l.id;
+function parseLoc(txt){if(/^\s*anywhere\s*$/i.test(String(txt||''))){return{ids:[],lines:[],miss:[],any:true}}
+ const ids=[],lines=[],miss=[],parts=String(txt||'').split(/[;\n]/).length>1||/;/.test(txt)?String(txt).split(/[;\n]/):String(txt||'').split(',');
+ const lineBy0=n=>NET.lines.filter(l=>norm(l.name)===n||norm(l.id)===n||norm(String(l.name||'').replace(/\s+line$/i,''))===n);
+ /* a name shared by several pieces ('Green Line' for 'Green Line B (...)', 'Green Line C (...)') means all of them */
+ const lineBy=n=>{const e=lineBy0(n);return e.length||n.length<4?e:NET.lines.filter(l=>norm(l.name).startsWith(n+' '))};
+ for(const raw of parts){let q=raw.trim();if(!q)continue;
+  /* 'Name (Route)' (or '(Line)') always means the line, even when a station has the same name */
+  const fm=/^(.*\S)\s*\((?:route|line)\)$/i.exec(q);
+  if(fm){const m=lineBy(norm(fm[1]));if(m.length)m.forEach(l=>{if(!lines.includes(l.id))lines.push(l.id)});else miss.push(q);continue}
+  const n=norm(q);let m=NET.regions.filter(r=>r.id===q||norm(r.name)===n);
+  if(m.length){m.forEach(r=>{if(!ids.includes(r.id))ids.push(r.id)});continue}
+  const lm=lineBy(n);if(lm.length){lm.forEach(l=>{if(!lines.includes(l.id))lines.push(l.id)});continue}
+  if(n.length>2){const f=NET.regions.filter(r=>norm(r.name).includes(n));if(f.length===1)m=f}
   if(m.length)m.forEach(r=>{if(!ids.includes(r.id))ids.push(r.id)});else miss.push(q)}
- return{ids,miss,any:false}}
+ return{ids,lines,miss,any:false}}
 const typeOf=c=>KINDS[c.type]?c.type:'standard';
 const num=x=>{const n=Number(x);return isFinite(n)?n:0};
 const bmul=(c,t)=>{const st=S.board.ch[c.id];return st&&!st[t]?BOOST**ACT().filter(o=>o!==t&&st[o]&&st[o].s==='failed').length:1};
@@ -258,8 +283,8 @@ function est(c,t){const k=typeOf(c),m=bmul(c,t),r=num(c.reward),o=richOpp(t),b=S
 const fmt=x=>Math.round(x*100)/100;
 function rewardChip(c,mt){const k=typeOf(c),m=mt?bmul(c,mt):1,r=fmt(num(c.reward)*m);
  return k==='steal'?'Steal '+r+'% of '+(ACT().length>2?'each rival\'s':'the other team\'s')+' coins':k==='multiplier'?'+'+r+'% of your coins':k==='variable'?'\u{1FA99} '+r+' each':'\u{1FA99} '+r}
-function locHtml(c){const ids=locsOf(c).filter(i=>ST[i]),extra=(c.locText||'').trim(),pend=c.anywhere&&!ids.length;
- if(!ids.length&&!extra&&!pend)return '';return '<div class="row" style="margin-top:6px"><span class="mu">\u{1F4CD}</span>'+ids.map(i=>'<button class="chip" data-st="'+esc(i)+'" style="cursor:pointer;background:transparent;color:inherit">'+esc(ST[i].name)+'</button>').join('')+(extra?'<span class="mu">'+esc(extra)+'</span>':'')+(pend?'<span class="mu">Anywhere &mdash; a station is picked when it goes live</span>':c.anywhere?'<span class="mu">(random station)</span>':'')+'</div>'}
+function locHtml(c){const lv=S.board.where&&S.board.where[c.id],ids=(lv||(c.anywhere?[]:(c.loc||[]))).filter(i=>ST[i]),lnm=lv?[]:(c.lines||[]).filter(l=>LC[l]).map(l=>lineName(LC[l])),extra=(c.locText||'').trim(),pend=c.anywhere&&!ids.length;
+ if(!ids.length&&!lnm.length&&!extra&&!pend)return '';return '<div class="row" style="margin-top:6px"><span class="mu">\u{1F4CD}</span>'+ids.map(i=>'<button class="chip" data-st="'+esc(i)+'" style="cursor:pointer;background:transparent;color:inherit">'+esc(ST[i].name)+'</button>').join('')+lnm.map(n=>'<span class="mu">\u{1F687} '+esc(n)+' (a random station on it)</span>').join('')+(extra?'<span class="mu">'+esc(extra)+'</span>':'')+(pend?'<span class="mu">Anywhere &mdash; a station is picked when it goes live</span>':c.anywhere?'<span class="mu">(random station)</span>':'')+'</div>'}
 function renderChal(){const f=document.activeElement;if(f&&f.closest&&f.closest('#chal')&&f.tagName==='INPUT')return;
  const mt=myTeam(),B=S.board,ch=B.ch,go=B.started&&!RO()&&S.db&&mt;
  const card=(c,st)=>{const x=ch[c.id]||{call:{}},k=typeOf(c),mine=mt&&x[mt],boost=mt?bmul(c,mt):1,live=st==='live';
@@ -294,25 +319,25 @@ function renderChal(){const f=document.activeElement;if(f&&f.closest&&f.closest(
  q('[data-fail]').forEach(b=>arm(b,()=>ev('fail',b.dataset.fail)));
  q('[data-pink]').forEach(b=>arm(b,()=>{if(!S.db||!mt||RO()||!PK())return;claimPink(mt,PK().id)}))}
 function form(){if(!S.host||RO()){$('chalform').innerHTML='';return}const c=S.chal.find(x=>x.id===S.edit)||{},ty=typeOf(c);
- const loc=c.anywhere?'Anywhere':(c.loc||[]).filter(i=>ST[i]).map(i=>ST[i].name).concat(c.locText?[c.locText]:[]).join('; ');
- $('chalform').innerHTML='<div class="card"><h3>'+(S.edit?'Edit':'Add')+' challenge</h3><input id="ct" placeholder="Title" value="'+esc(c.title)+'"><textarea id="cd" rows="2" placeholder="Description" style="margin-top:6px">'+esc(c.description)+'</textarea><select id="cy" style="margin-top:6px">'+Object.entries(KINDS).map(([k,n])=>'<option value="'+k+'"'+(k===ty?' selected':'')+'>'+n+'</option>').join('')+'</select><input id="cr" type="number" step="any" placeholder="Reward" value="'+esc(c.reward==null||c.reward==='?'?'':c.reward)+'" style="margin-top:6px"><div class="mu" id="chint" style="margin-top:4px"></div><input id="cl" placeholder="Location: stations separated by ; , or Anywhere" value="'+esc(loc)+'" style="margin-top:6px"><div class="mu" id="cm"></div><div class="row"><button class="pr" id="cs">'+(S.edit?'Save':'Add')+'</button>'+(S.edit?'<button id="cc">Cancel</button>':'')+'</div></div>';
+ const loc=c.anywhere?'Anywhere':(c.loc||[]).filter(i=>ST[i]).map(i=>ST[i].name).concat((c.lines||[]).filter(l=>LC[l]).map(l=>lineName(LC[l])+' (Route)')).concat(c.locText?[c.locText]:[]).join('; ');
+ $('chalform').innerHTML='<div class="card"><h3>'+(S.edit?'Edit':'Add')+' challenge</h3><input id="ct" placeholder="Title" value="'+esc(c.title)+'"><textarea id="cd" rows="2" placeholder="Description" style="margin-top:6px">'+esc(c.description)+'</textarea><select id="cy" style="margin-top:6px">'+Object.entries(KINDS).map(([k,n])=>'<option value="'+k+'"'+(k===ty?' selected':'')+'>'+n+'</option>').join('')+'</select><input id="cr" type="number" step="any" placeholder="Reward" value="'+esc(c.reward==null||c.reward==='?'?'':c.reward)+'" style="margin-top:6px"><div class="mu" id="chint" style="margin-top:4px"></div><input id="cl" placeholder="Location: stations or lines separated by ; , or Anywhere" value="'+esc(loc)+'" style="margin-top:6px"><div class="mu" id="cm"></div><div class="row"><button class="pr" id="cs">'+(S.edit?'Save':'Add')+'</button>'+(S.edit?'<button id="cc">Cancel</button>':'')+'</div></div>';
  const hint={standard:'Reward = coins awarded.',steal:'Reward = % of the other team\'s coins stolen (with three teams, the percentage is taken from each rival).',variable:'Reward = coins per unit; players call their shot first.',multiplier:'Reward = % of the team\'s own coins added.'};
  const sh=()=>{$('chint').textContent=hint[$('cy').value]};$('cy').onchange=sh;sh();
  $('cs').onclick=async()=>{const t=$('ct').value.trim();if(!t)return;const r=$('cr').value.trim();if(r===''||isNaN(Number(r))){$('cm').textContent='Enter a numeric reward.';return}
-  const L=parseLoc($('cl').value);const o={title:t,description:$('cd').value.trim(),type:$('cy').value,reward:Number(r),loc:L.ids,locText:L.miss.join('; '),anywhere:!!L.any};
+  const L=parseLoc($('cl').value);const o={title:t,description:$('cd').value.trim(),type:$('cy').value,reward:Number(r),loc:L.ids,lines:L.lines,locText:L.miss.join('; '),anywhere:!!L.any};
   $('cm').textContent=L.miss.length?'Not matched to a station (kept as text): '+L.miss.join('; '):'';
   if(S.edit){await S.db.doc(G()+'/challenges/'+S.edit).update(o);S.edit=null}else{o.order=Date.now();await S.db.doc(G()+'/challenges/c'+Date.now()).set(o)}};
  if($('cc'))$('cc').onclick=()=>{S.edit=null;form()};
  }
-function updateStat(){const e=$('bstat');if(!e)return;const ok=S.chal.filter(c=>c.anywhere||(c.loc||[]).some(i=>ST[i])).length,no=S.chal.length-ok;e.textContent='Bank: '+S.chal.length+' challenges. '+ok+' can go on the map'+(no?'; '+no+' have no matching station and will never appear':'')+'.'}
+function updateStat(){const e=$('bstat');if(!e)return;const ok=S.chal.filter(c=>c.anywhere||candOf(c).some(i=>ST[i])).length,no=S.chal.length-ok;e.textContent='Bank: '+S.chal.length+' challenges. '+ok+' can go on the map'+(no?'; '+no+' have no matching station and will never appear':'')+'.'}
 function importUI(){const h=$('hostimport');if(!S.host||!S.db||RO()){h.innerHTML='';return}
- h.innerHTML='<div class="card"><h3>Import challenges</h3><div class="mu">One per line: Title | Description | Type | Reward | Location<br>Type is Standard, Steal, Variable or Multiplier. Location is a station or a list of stations separated by ; (or commas), or Anywhere (a random station with no other challenge, chosen when it goes live).</div><textarea id="cb" rows="5"></textarea><div class="mu" id="bstat"></div><div class="mu" id="cim"></div><div class="row"><button id="cg">Import</button></div></div>';
+ h.innerHTML='<div class="card"><h3>Import challenges</h3><div class="mu">One per line: Title | Description | Type | Reward | Location<br>Type is Standard, Steal, Variable or Multiplier. Location is a station, a line, or a list of them separated by ; (or commas), or Anywhere (a random station with no other challenge, chosen when it goes live). A line means a random station on that line, chosen when it goes live. If a station and a line share a name, the bare name means the station; write Name (Route) for the line.</div><textarea id="cb" rows="5"></textarea><div class="mu" id="bstat"></div><div class="mu" id="cim"></div><div class="row"><button id="cg">Import</button></div></div>';
  $('cg').onclick=async()=>{if(RO())return;let n=Date.now(),ok=0;const bad=[],unm=[];
   for(const l of $('cb').value.split('\n')){if(!l.trim())continue;const p=l.split('|').map(x=>x.trim());const [t,d,ty,r,lc]=p;
    const k=Object.keys(KINDS).find(z=>z===String(ty||'').toLowerCase()),rv=Number(r);
    if(!t||!k||r===''||r==null||isNaN(rv)){bad.push(t||l.slice(0,30));continue}
    const L=parseLoc(lc);if(L.miss.length)unm.push(t+': '+L.miss.join('; '));
-   await S.db.doc(G()+'/challenges/c'+n).set({title:t,description:d||'',type:k,reward:rv,loc:L.ids,locText:L.miss.join('; '),anywhere:!!L.any,order:n});n++;ok++}
+   await S.db.doc(G()+'/challenges/c'+n).set({title:t,description:d||'',type:k,reward:rv,loc:L.ids,lines:L.lines,locText:L.miss.join('; '),anywhere:!!L.any,order:n});n++;ok++}
   $('cim').textContent='Imported '+ok+'.'+(bad.length?' Skipped (needs Title | Description | Type | Reward | Location with a valid type and numeric reward): '+bad.join(', ')+'.':'')+(unm.length?' Locations not matched to a station (kept as text): '+unm.join(' / ')+'.':'');
   if(!bad.length)$('cb').value=''}}
 /* ---- host ---- */
@@ -366,12 +391,12 @@ function renderLog(){if(S.tab!=='log')return;if(S.lsub!=='coins'&&S.lsub!=='chal
 /* ---- live challenges ---- */
 const mulberry=a=>()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
 const hstr=x=>{let h=1779033703^x.length;for(let i=0;i<x.length;i++){h=Math.imul(h^x.charCodeAt(i),3432918353);h=h<<13|h>>>19}return h>>>0};
-const specSt=()=>{const z=new Set();S.chal.forEach(c=>{if(!c.anywhere)(c.loc||[]).forEach(i=>ST[i]&&z.add(i))});return z};
+const specSt=()=>{const z=new Set();S.chal.forEach(c=>{candOf(c).forEach(i=>ST[i]&&z.add(i))});return z};
 const occSt=()=>{const z=liveSt();if(S.board.pink)z.add(S.board.pink.st);return z};
 function planPicks(trig,n,ex){const rnd=mulberry(hstr(S.gid+':'+trig+':c')),spec=specSt(),occ=occSt(),B=S.board,picks=[];
  let pool=S.chal.filter(c=>!B.used.has(c.id)).sort((a,b)=>a.id<b.id?-1:a.id>b.id?1:0);
  const free=()=>NET.regions.map(r=>r.id).filter(i=>!spec.has(i)&&!occ.has(i));
- const own=c=>(c.loc||[]).filter(i=>ST[i]);
+ const own=c=>candOf(c).filter(i=>ST[i]);
  for(let k=0;k<n;k++){
   const ok0=pool.filter(c=>c.anywhere?free().length>0:own(c).length>0);if(!ok0.length)break;const ok1=ok0.filter(c=>c.id!==ex),ok=ok1.length?ok1:ok0;
   const clean=ok.filter(c=>c.anywhere||own(c).some(i=>!occ.has(i))),from=clean.length?clean:ok,c=from[Math.floor(rnd()*from.length)];
@@ -455,7 +480,8 @@ function endUI(){const g=cur()||{},sel=$('endsel');
  if(!endDirty){sel.value=g.endMode||'';const mn=g.endMin||0;$('endh').value=Math.floor(mn/60);$('endm').value=mn%60;$('endat').value=g.endAt?dtLocal(g.endAt):''}
  $('end-dur').classList.toggle('hide',sel.value!=='duration');$('end-at').classList.toggle('hide',sel.value!=='time');
  if(document.activeElement!==$('pon'))$('pon').checked=pinkOn();
- const dis=!S.host||RO();['endsel','endh','endm','endat','ends','pon'].forEach(i=>$(i).disabled=dis)}
+ const dis=!S.host||RO();['endsel','endh','endm','endat','ends'].forEach(i=>$(i).disabled=dis);
+ $('pon').disabled=dis||!!S.board.started;$('ponm').textContent=S.board.started?'(fixed once the game has started)':''}
 ['endsel','endh','endm','endat'].forEach(i=>$(i).addEventListener('input',()=>{endDirty=true}));
 $('endsel').onchange=()=>{endDirty=true;$('end-dur').classList.toggle('hide',$('endsel').value!=='duration');$('end-at').classList.toggle('hide',$('endsel').value!=='time')};
 $('ends').onclick=()=>{if(!S.db||!S.gid||!S.host||RO())return;const mode=$('endsel').value,msg=$('endmsg');let upd={endMode:mode};
@@ -463,7 +489,7 @@ $('ends').onclick=()=>{if(!S.db||!S.gid||!S.host||RO())return;const mode=$('ends
   const g=cur();if(g&&g.startedAt&&g.startedAt+mn*60000<=Date.now()){msg.textContent='That is already in the past.';return}}
  else if(mode==='time'){const t=$('endat').value?new Date($('endat').value).getTime():NaN;if(!(t>Date.now())){msg.textContent='Pick a date and time in the future.';return}upd.endAt=t}
  S.db.doc('games/'+S.gid).update(upd).then(()=>{endDirty=false;msg.textContent=mode?'Saved.':'Saved: you end the game yourself.';endUI()}).catch(e=>{console.error(e);msg.textContent='Could not save.'})};
-$('pon').onchange=()=>{if(!S.db||!S.gid||!S.host||RO())return;S.db.doc('games/'+S.gid).update({pinkOn:$('pon').checked}).catch(e=>console.error(e))};
+$('pon').onchange=()=>{if(!S.db||!S.gid||!S.host||RO()||S.board.started){endUI();return}S.db.doc('games/'+S.gid).update({pinkOn:$('pon').checked}).catch(e=>console.error(e))};
 function renderRO(){const g=cur(),b=$('rob');if(!g||g.status!=='ended'){b.classList.add('hide');b.innerHTML='';return}
  const ps=g.participants||[],ti=g.teamInfo||{},r=g.result||{};if(!S.pov||!ps.includes(S.pov))S.pov=ps.includes(S.me)?S.me:(ps[0]||null);
  const w=g.endReason==='inactive'?'ended after 7 days of inactivity':r.winner&&r.winner!=='draw'?((ti[r.winner]&&ti[r.winner].name)||DEF[r.winner].name)+' won':'Draw';
