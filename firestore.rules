@@ -2,6 +2,19 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Admins: a document admins/{uid} makes that account an admin. Clients can read only their own entry and can
+    // never write here, so admins are added or removed by hand in the Firebase console (Firestore > admins).
+    // Guests (anonymous sign-in) never count as admins.
+    function isAdmin() {
+      return request.auth != null
+          && request.auth.token.firebase.sign_in_provider != 'anonymous'
+          && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+    match /admins/{uid} {
+      allow get: if request.auth != null && request.auth.uid == uid;
+      allow list, write: if false;
+    }
+
     // Game data: anyone signed in (guests included) can read and write.
     // Game passwords are a client-side gate, not real security: fine for friendly games.
     match /games/{document=**} {
@@ -16,8 +29,8 @@ service cloud.firestore {
     // Only real accounts (not guests) can create or change maps, and only their own.
     match /maps/{mapId} {
       allow get: if request.auth != null
-                 && (resource.data.owner == request.auth.uid || resource.data.share == 'link');
-      allow list: if request.auth != null && resource.data.owner == request.auth.uid;
+                 && (resource.data.owner == request.auth.uid || resource.data.share == 'link' || isAdmin());
+      allow list: if request.auth != null && (resource.data.owner == request.auth.uid || isAdmin());
       allow create: if request.auth != null
                     && request.auth.token.firebase.sign_in_provider != 'anonymous'
                     && request.resource.data.owner == request.auth.uid
@@ -33,7 +46,8 @@ service cloud.firestore {
       // anyone with the link sees only the ones the owner marked pub == true, and only while the map is shared.
       match /challenges/{cid} {
         allow read: if request.auth != null
-                    && (get(/databases/$(database)/documents/maps/$(mapId)).data.owner == request.auth.uid
+                    && (isAdmin()
+                        || get(/databases/$(database)/documents/maps/$(mapId)).data.owner == request.auth.uid
                         || (get(/databases/$(database)/documents/maps/$(mapId)).data.share == 'link' && resource.data.pub == true));
         allow write: if request.auth != null
                      && request.auth.token.firebase.sign_in_provider != 'anonymous'

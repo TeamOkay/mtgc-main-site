@@ -1,0 +1,217 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Admin</title>
+<style>
+:root{
+  --bg:#eef1f6; --panel:#ffffff; --ink:#18212f; --mute:#5d6878; --rule:#cfd6e2;
+  --accent:#1f5fd1; --accent-ink:#ffffff; --good:#14803c; --warn:#a86500; --bad:#c62828; --bar:#1f5fd1;
+  --body:system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0d1520; --panel:#15202e; --ink:#e8edf5; --mute:#97a3b4; --rule:#2a3a4d;
+  --accent:#6ea0ff; --accent-ink:#0d1520; --good:#5fd08a; --warn:#f0b24a; --bad:#ff7a7a; --bar:#6ea0ff; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0d1520; --panel:#15202e; --ink:#e8edf5; --mute:#97a3b4; --rule:#2a3a4d;
+  --accent:#6ea0ff; --accent-ink:#0d1520; --good:#5fd08a; --warn:#f0b24a; --bad:#ff7a7a; --bar:#6ea0ff; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 var(--body)}
+button,input,select{font:inherit;color:inherit}
+.app{height:100%;display:flex;flex-direction:column}
+header{flex:none;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 16px;background:var(--panel);border-bottom:3px solid var(--accent)}
+h1{margin:0;font-size:20px;letter-spacing:.06em;text-transform:uppercase}
+h2{margin:0 0 8px;font-size:15px}
+.tabs{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}
+.btn{padding:6px 11px;border-radius:6px;border:1px solid var(--rule);background:var(--panel);cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+.btn.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+main{flex:1;min-height:0;overflow:auto;padding:14px 16px 28px}
+.note{color:var(--mute);font-size:12.5px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.bar input,.bar select{padding:6px 9px;border:1px solid var(--rule);border-radius:6px;background:var(--panel)}
+.bar input{flex:1;min-width:160px}
+.card{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:10px 12px;margin-bottom:8px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.sp{flex:1;min-width:0}
+.chip{display:inline-block;padding:1px 8px;border-radius:99px;border:1px solid var(--rule);font-size:12px;color:var(--mute)}
+.chip.good{color:var(--good);border-color:var(--good)} .chip.warn{color:var(--warn);border-color:var(--warn)} .chip.bad{color:var(--bad);border-color:var(--bad)}
+.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break:break-all}
+.kv{display:grid;grid-template-columns:max-content 1fr;gap:2px 12px;margin:6px 0}
+.kv>span:nth-child(odd){color:var(--mute)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px}
+.stat b{display:block;font-size:22px}
+.bars{display:flex;align-items:flex-end;gap:4px;height:90px;margin:8px 0 2px}
+.bars i{flex:1;background:var(--bar);border-radius:3px 3px 0 0;min-height:2px}
+.bars+.axis{display:flex;gap:4px;color:var(--mute);font-size:10.5px}.axis span{flex:1;text-align:center}
+.ro{color:var(--mute);font-size:12px}
+</style></head><body>
+<div class="app">
+<header><h1>Admin</h1><span class="chip" id="who">checking…</span><span class="ro">read-only</span>
+<div class="tabs"><button class="btn on" data-t="games">Games</button><button class="btn" data-t="maps">Maps</button><button class="btn" data-t="stats">Stats</button></div></header>
+<main id="main"><p class="note">Loading…</p></main>
+</div>
+<script>
+(function () {
+  "use strict";
+  var $ = function (i) { return document.getElementById(i); };
+  var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
+  var DAY = 86400000;
+  var TYPE = { "rail-rush": "Rail Rush", "area-claiming": "Area Claiming", "ticket-to-ride": "Ticket to Ride" };
+  var db = null, T = null, games = [], maps = null, tab = "games", openId = null, detailCache = {};
+  var F = { q: "", status: "", type: "" };
+
+  function ago(ms) {
+    if (!ms) return "—";
+    var d = Date.now() - ms; if (d < 0) d = 0;
+    if (d < 60000) return "just now";
+    if (d < 3600000) return Math.floor(d / 60000) + " min ago";
+    if (d < DAY) return Math.floor(d / 3600000) + " h ago";
+    return Math.floor(d / DAY) + " d ago";
+  }
+  function when(ms) { return ms ? new Date(ms).toLocaleString() : "—"; }
+  function last(g) { return g.lastActive || g.createdAt || 0; }
+  function chips(g) {
+    var o = [];
+    o.push(g.status === "ended" ? '<span class="chip">Ended</span>' : '<span class="chip good">Active</span>');
+    if (g.status !== "ended") {
+      var idle = Date.now() - last(g);
+      if (idle > 5 * DAY) o.push('<span class="chip bad">Idle ' + Math.floor(idle / DAY) + ' d</span>');
+      else if (idle > DAY) o.push('<span class="chip warn">Idle ' + Math.floor(idle / DAY) + ' d</span>');
+      if (g.startedAt) o.push('<span class="chip">Started</span>');
+    }
+    if (g.passHash) o.push('<span class="chip">Password</span>');
+    if (g.spectators) o.push('<span class="chip">Spectators</span>');
+    if (g.endedBy === "inactivity") o.push('<span class="chip warn">Ended: inactivity</span>');
+    else if (g.endedAuto) o.push('<span class="chip">Ended: time limit</span>');
+    return o.join(" ");
+  }
+  function mapLabel(g) { return g.mapName || g.city || ""; }
+
+  /* ---------- games ---------- */
+  function filtered() {
+    var q = F.q.trim().toLowerCase();
+    return games.filter(function (g) {
+      if (F.status && (g.status === "ended" ? "ended" : "active") !== F.status) return false;
+      if (F.type && g.type !== F.type) return false;
+      if (q && ((g.name || "") + " " + (g.hostName || "") + " " + g.id + " " + (g.createdBy || "")).toLowerCase().indexOf(q) < 0) return false;
+      return true;
+    }).sort(function (a, b) { return last(b) - last(a); });
+  }
+  function renderGames() {
+    var m = $("main"), list = filtered();
+    var h = '<div class="bar"><input id="q" placeholder="Search name, host, game id or host id" value="' + esc(F.q) + '">' +
+      '<select id="fs"><option value="">Any status</option><option value="active"' + (F.status === "active" ? " selected" : "") + '>Active</option><option value="ended"' + (F.status === "ended" ? " selected" : "") + '>Ended</option></select>' +
+      '<select id="ft"><option value="">Any game</option>' + Object.keys(TYPE).map(function (k) { return '<option value="' + k + '"' + (F.type === k ? " selected" : "") + ">" + TYPE[k] + "</option>"; }).join("") + "</select></div>" +
+      '<p class="note">' + list.length + " of " + games.length + " games</p>";
+    h += list.map(function (g) {
+      var op = openId === g.id;
+      return '<div class="card" data-g="' + esc(g.id) + '"><div class="row"><div class="sp"><b>' + esc(g.name || g.id) + "</b> " + chips(g) +
+        '<div class="note">' + esc(TYPE[g.type] || g.type || "") + (mapLabel(g) ? " · " + esc(mapLabel(g)) : "") + " · host " + esc(g.hostName || "?") + " · created " + esc(when(g.createdAt)) + " · active " + esc(ago(last(g))) + "</div></div>" +
+        '<button class="btn" data-open="' + esc(g.id) + '">Open game</button><button class="btn" data-det="' + esc(g.id) + '">' + (op ? "Hide" : "Details") + "</button></div>" +
+        (op ? '<div id="d-' + esc(g.id) + '">' + (detailCache[g.id] ? detailHtml(g, detailCache[g.id]) : '<p class="note">Loading…</p>') + "</div>" : "") + "</div>";
+    }).join("") || '<p class="note">No games match.</p>';
+    var f = document.activeElement, keep = f && f.id === "q" ? f.selectionStart : null;
+    m.innerHTML = h;
+    if (keep != null) { var q = $("q"); q.focus(); q.setSelectionRange(keep, keep); }
+    $("q").oninput = function () { F.q = this.value; renderGames(); };
+    $("fs").onchange = function () { F.status = this.value; renderGames(); };
+    $("ft").onchange = function () { F.type = this.value; renderGames(); };
+    m.querySelectorAll("[data-open]").forEach(function (b) { b.onclick = function () { T.openGame(b.dataset.open); }; });
+    m.querySelectorAll("[data-det]").forEach(function (b) {
+      b.onclick = function () { var id = b.dataset.det; openId = openId === id ? null : id; renderGames(); if (openId) loadDetail(id); };
+    });
+  }
+  async function loadDetail(id) {
+    var p = "games/" + id + "/", names = ["players", "members", "teams", "challenges", "events"], d = {};
+    try {
+      var r = await Promise.all(names.map(function (n) { return db.collection(p + n).get(); }));
+      names.forEach(function (n, i) { d[n] = r[i].docs.map(function (x) { return Object.assign({ id: x.id }, x.data()); }); });
+    } catch (e) { console.error(e); d.err = true; }
+    detailCache[id] = d;
+    var el = $("d-" + id), g = games.filter(function (x) { return x.id === id; })[0];
+    if (el && g) el.innerHTML = detailHtml(g, d);
+  }
+  function kv(a) { return '<div class="kv">' + a.map(function (x) { return "<span>" + esc(x[0]) + "</span><span>" + x[1] + "</span>"; }).join("") + "</div>"; }
+  function detailHtml(g, d) {
+    if (d.err) return '<p class="note">Could not load this game\'s data.</p>';
+    var tn = {}; (d.teams || []).forEach(function (t) { tn[t.id] = t.name; });
+    var team = function (k) { return k ? esc(tn[k] || (k.length === 1 ? "Team " + k : k)) : "no team"; };
+    var inP = {}; d.players.forEach(function (p) { inP[p.id] = 1; });
+    var noEntry = d.members.filter(function (m) { return !inP[m.id]; }).length;
+    var types = {}; d.events.forEach(function (e) { types[e.type || "?"] = (types[e.type || "?"] || 0) + 1; });
+    var lastEv = d.events.reduce(function (a, e) { return Math.max(a, e.at || 0); }, 0);
+    var h = kv([
+      ["Game id", '<span class="mono">' + esc(g.id) + "</span>"], ["Host", esc(g.hostName || "?") + ' <span class="mono">' + esc(g.createdBy || "") + "</span>"],
+      ["Created", esc(when(g.createdAt))], ["Started", esc(when(g.startedAt))], ["Last active", esc(when(g.lastActive))],
+      g.status === "ended" ? ["Ended", esc(when(g.endedAt)) + (g.summary ? " — " + esc(g.summary) : "")] : ["Status", "Active"],
+      ["Map", esc(mapLabel(g) || "—")], ["Challenges", String(d.challenges.length)], ["Events", d.events.length + (lastEv ? " (last " + esc(ago(lastEv)) + ")" : "")],
+      ["Get here!", g.type === "rail-rush" ? (g.pinkOn === false ? "off" : "on") : "—"],
+      ["Auto end", g.endMode === "duration" ? (g.endMin || 0) + " min after start" : g.endMode === "time" ? "at " + esc(when(g.endAt)) : "none"]
+    ]);
+    h += "<b>Players (" + d.players.length + ")</b>" + (d.players.length ? "<div>" + d.players.map(function (p) {
+      return '<div class="row"><span>' + esc(p.name || "Player") + '</span><span class="chip">' + team(p.team) + '</span><span class="mono">' + esc(p.id) + "</span>" + (p.id === g.createdBy ? '<span class="chip">host</span>' : "") + "</div>";
+    }).join("") + "</div>" : '<p class="note">None yet.</p>');
+    h += '<p class="note">Members (joined with the password): ' + d.members.length + (noEntry ? " — " + noEntry + " without a player entry" : "") + "</p>";
+    var tt = Object.keys(types).sort(function (a, b) { return types[b] - types[a]; });
+    if (tt.length) h += '<p class="note">Events by type: ' + tt.map(function (k) { return esc(k) + " " + types[k]; }).join(", ") + "</p>";
+    return h;
+  }
+
+  /* ---------- maps ---------- */
+  async function renderMaps() {
+    var m = $("main");
+    if (!maps) {
+      m.innerHTML = '<p class="note">Loading maps…</p>';
+      try { var q = await db.collection("maps").get(); maps = q.docs.map(function (x) { return Object.assign({ id: x.id }, x.data()); }); }
+      catch (e) { console.error(e); m.innerHTML = '<p class="note">Could not load maps. Check that the latest security rules are published in Firebase.</p>'; return; }
+    }
+    var list = maps.slice().sort(function (a, b) { return (b.updated || b.created || 0) - (a.updated || a.created || 0); });
+    m.innerHTML = '<p class="note">' + list.length + " maps (including private ones)</p>" + (list.map(function (x) {
+      var kb = Math.round(String(x.json || "").length / 1024);
+      return '<div class="card"><div class="row"><div class="sp"><b>' + esc(x.name || "Untitled") + '</b> <span class="chip ' + (x.share === "link" ? "warn" : "") + '">' + (x.share === "link" ? "Shared by link" : "Private") + '</span><div class="note">owner <span class="mono">' + esc(x.owner || "") + "</span> · " + kb + ' KB · <span class="mono">' + esc(x.id) + "</span></div></div></div></div>";
+    }).join("") || '<p class="note">No maps yet.</p>');
+  }
+
+  /* ---------- stats ---------- */
+  function renderStats() {
+    var m = $("main"), now = Date.now(), act = games.filter(function (g) { return g.status !== "ended"; });
+    var by = function (f) { var o = {}; games.forEach(function (g) { var k = f(g); o[k] = (o[k] || 0) + 1; }); return o; };
+    var idle1 = act.filter(function (g) { return now - last(g) > DAY; }).length, idle5 = act.filter(function (g) { return now - last(g) > 5 * DAY; }).length;
+    var inact = games.filter(function (g) { return g.endedBy === "inactivity"; }).length, auto = games.filter(function (g) { return g.endedAuto; }).length;
+    var hosts = {}; games.forEach(function (g) { if (g.createdBy) hosts[g.createdBy] = 1; });
+    var stat = function (n, l) { return '<div class="card stat"><b>' + n + "</b>" + esc(l) + "</div>"; };
+    var days = [], i;
+    for (i = 13; i >= 0; i--) { var d0 = new Date(); d0.setHours(0, 0, 0, 0); d0 = d0.getTime() - i * DAY; days.push({ t: d0, n: 0 }); }
+    games.forEach(function (g) { days.forEach(function (d) { if (g.createdAt >= d.t && g.createdAt < d.t + DAY) d.n++; }); });
+    var mx = Math.max.apply(null, days.map(function (d) { return d.n; }).concat([1]));
+    var types = by(function (g) { return TYPE[g.type] || g.type || "?"; });
+    m.innerHTML = '<div class="grid">' + stat(games.length, "games in total") + stat(act.length, "active now") + stat(games.length - act.length, "ended") + stat(Object.keys(hosts).length, "different hosts") +
+      stat(idle1, "active, idle over 1 day") + stat(idle5, "active, idle over 5 days") + stat(inact, "ended by inactivity") + stat(auto, "ended by a time limit") + "</div>" +
+      '<div class="card"><h2>By game</h2>' + Object.keys(types).map(function (k) { return "<div>" + esc(k) + ": <b>" + types[k] + "</b></div>"; }).join("") + "</div>" +
+      '<div class="card"><h2>Games created per day (last 14 days)</h2><div class="bars">' + days.map(function (d) { return '<i title="' + d.n + '" style="height:' + Math.round(d.n / mx * 100) + '%"></i>'; }).join("") +
+      '</div><div class="axis">' + days.map(function (d) { return "<span>" + new Date(d.t).getDate() + "</span>"; }).join("") + "</div></div>" +
+      '<p class="note">Counts come from the games stored in the database. The site cannot list sign-in accounts, so people are counted only through the games they host.</p>';
+  }
+
+  function show() {
+    document.querySelectorAll(".tabs .btn").forEach(function (b) { b.classList.toggle("on", b.dataset.t === tab); });
+    if (tab === "games") renderGames(); else if (tab === "maps") renderMaps(); else renderStats();
+  }
+  document.querySelectorAll(".tabs .btn").forEach(function (b) { b.onclick = function () { tab = b.dataset.t; show(); }; });
+
+  async function init() {
+    try {
+      T = window.parent && window.parent.TG;
+      if (T && T.adminReady) await T.adminReady();
+      db = await claude.use("db");
+      if (!db || !T || !T.isAdmin()) { $("who").textContent = "not an admin"; $("main").innerHTML = '<p class="note">This page is for admins only.</p>'; return; }
+      $("who").textContent = "admin";
+      db.collection("games").onSnapshot(function (q) {
+        games = q.docs.map(function (x) { return Object.assign({ id: x.id }, x.data()); });
+        var f = document.activeElement;
+        if (tab === "games" && !(f && f.id === "q" && false)) renderGames(); else if (tab === "stats") renderStats();
+      }, function (e) { console.error(e); $("main").innerHTML = '<p class="note">Could not load games.</p>'; });
+    } catch (e) { console.error(e); $("main").innerHTML = '<p class="note">Something went wrong. Reload the page.</p>'; }
+  }
+  init();
+})();
+</script></body></html>

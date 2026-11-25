@@ -62,6 +62,8 @@ const TC=k=>({name:(S.teams[k]&&S.teams[k].name)||DEF[k].name,color:(S.teams[k]&
 const cur=()=>S.games.find(x=>x.id===S.gid);
 const deadline=()=>{const g=cur();if(!g||!g.startedAt)return null;if(g.endMode==='time'&&g.endAt>0)return Number(g.endAt);if(g.endMode==='duration'&&g.endMin>0)return Number(g.startedAt)+g.endMin*60000;return null};
 const RO=()=>{const g=cur();if(!g)return false;if(g.status==='ended')return true;const d=deadline();return d!=null&&Date.now()>=d};
+/* An admin who opens a game they are not part of only watches: no spawning, expiry or end-of-game writes, no player entry. */
+const VIEW=()=>{try{return !!window.parent.TG.isAdmin()&&!S.host&&!S.members.has(S.me)}catch(e){return false}};
 const pinkOn=()=>{const g=cur();return !g||g.pinkOn!==false};
 const PK=()=>pinkOn()?S.board.pink:null;
 const povUid=()=>RO()&&S.pov?S.pov:S.me;
@@ -226,7 +228,7 @@ function renderTeams(){const mt=myTeam(),p=S.players[povUid()]||{},tk=ACT(),cnt=
  const f=document.activeElement;
  if(!(f&&f.id==='pn')){
   const lk=teamsLocked(),jb=k=>{const t=TC(k),on=mt===k;return '<button id="j'+k+'"'+(lk&&!on?' disabled':'')+' style="'+(lk&&!on?'opacity:.45;':'')+(on?'background:'+esc(t.color)+';border-color:'+esc(t.color)+';color:'+textOn(t.color):'border-color:'+esc(t.color))+'">'+(on?'You are on ':'Join ')+esc(t.name)+'</button>'};
-  $('me').innerHTML=RO()?'':S.db?'<div class="card"><h3>You</h3><input id="pn" placeholder="Your name" value="'+esc(p.name||'')+'"><div class="row">'+tk.map(jb).join('')+(lk&&!mt?(canJoin()?'<button id="sn">Save name</button>':'<button id="jp">Enter password</button>'):'')+'</div><div class="mu" style="margin-top:6px">'+(lk?(mt?'The game has started, so teams are locked.':canJoin()?'The game has started, so teams are locked. You are watching; the host can add you to a team.':'The game has started, so teams are locked. You are watching. Enter the game password to join as a participant; the host can then add you to a team.'):canJoin()?(mt?'Switch teams any time.':(p.team&&!tk.includes(p.team)?'Your team was removed by the host. Pick a team to keep playing.':'Pick a team to start adding coins.')):'You are watching this game. Joining a team needs the game password.')+'</div></div>':'<div class="card mu">Sign in to join the game.</div>';
+  $('me').innerHTML=RO()?'':S.db&&VIEW()?'<div class="card"><h3>Admin view</h3><div class="mu">You are watching this game as an admin. You are not listed as a player and nothing here changes the game.</div></div>':S.db?'<div class="card"><h3>You</h3><input id="pn" placeholder="Your name" value="'+esc(p.name||'')+'"><div class="row">'+tk.map(jb).join('')+(lk&&!mt?(canJoin()?'<button id="sn">Save name</button>':'<button id="jp">Enter password</button>'):'')+'</div><div class="mu" style="margin-top:6px">'+(lk?(mt?'The game has started, so teams are locked.':canJoin()?'The game has started, so teams are locked. You are watching; the host can add you to a team.':'The game has started, so teams are locked. You are watching. Enter the game password to join as a participant; the host can then add you to a team.'):canJoin()?(mt?'Switch teams any time.':(p.team&&!tk.includes(p.team)?'Your team was removed by the host. Pick a team to keep playing.':'Pick a team to start adding coins.')):'You are watching this game. Joining a team needs the game password.')+'</div></div>':'<div class="card mu">Sign in to join the game.</div>';
   tk.forEach(k=>{const b=$('j'+k);if(b)b.onclick=()=>joinTeam(k,p)});
   if($('sn'))$('sn').onclick=()=>{const n=$('pn').value.trim()||'Player';S.db.doc(G()+'/players/'+S.me).set(Object.assign({},p,{name:n})).catch(e=>console.error(e))};
   if($('jp'))$('jp').onclick=async()=>{await window.parent.TG.requirePassword(S.gid)}}
@@ -420,14 +422,14 @@ const PINK_GRACE=10000;
 function claimPink(team,pk){const at=Date.now(),id='pd'+at.toString(36)+Math.random().toString(36).slice(2,7),st=planPink(id);
  const done={type:'pinkdone',team,pk,reward:pinkReward(),by:S.me,at},sp={type:'pinkspawn',trig:id,at:at+2,st,by:S.me};
  S.db.doc(G()+'/events/'+id).set(done).then(()=>S.db.doc(G()+'/events/pc_'+id).set(sp)).catch(e=>console.error(e))}
-function ensureSpawns(){if(!S.db||!S.gid||RO()||!S.chalOk||!S.board.started)return;const now=Date.now(),wait=x=>x.fb?Math.max(0,x.at+PINK_GRACE-now):0,pd=(S.board.pend||[]).filter(x=>x.k!=='p'||pinkOn()),p=pd.find(x=>!wait(x));
+function ensureSpawns(){if(!S.db||!S.gid||RO()||VIEW()||!S.chalOk||!S.board.started)return;const now=Date.now(),wait=x=>x.fb?Math.max(0,x.at+PINK_GRACE-now):0,pd=(S.board.pend||[]).filter(x=>x.k!=='p'||pinkOn()),p=pd.find(x=>!wait(x));
  if(!p){const w=Math.min(...pd.map(wait).filter(Boolean));if(isFinite(w)&&!ensureSpawns.t){ensureSpawns.t=setTimeout(()=>{ensureSpawns.t=0;ensureSpawns()},w+300)}return}
  const key=S.gid+'|'+p.id+'|'+p.k;if(sentSp.has(key))return;sentSp.add(key);
  const K=cfg();let n=p.kind==='start'?K.start:p.kind==='ex'?1:2;if(K.capOn)n=Math.max(0,Math.min(n,K.cap-Object.keys(S.board.live).length));
   const doc=p.k==='c'?{type:'spawn',trig:p.id,at:p.at+1,wt:Date.now(),cap:K.capOn?K.cap:null,picks:n?planPicks(p.id,n,p.ex):[],by:S.me}:{type:'pinkspawn',trig:p.id,at:p.at+(p.fb?3:2),st:planPink(p.id),by:S.me};
  S.db.doc(G()+'/events/'+(p.k==='c'?'sp_':p.fb?'pf_':'pk_')+p.id).set(doc).catch(e=>{console.error(e);sentSp.delete(key)})}
 const sentEx=new Set();
-function checkExpiry(){const K=cfg();if(!K.expireOn||!S.db||!S.gid||RO()||!S.chalOk||!S.board.started)return;
+function checkExpiry(){const K=cfg();if(!K.expireOn||!S.db||!S.gid||RO()||VIEW()||!S.chalOk||!S.board.started)return;
  const now=Date.now(),ms=K.expireMin*60000;
  for(const [id,L] of Object.entries(S.board.live)){if(!L.since||now-L.since<ms)continue;const key=id+'|'+L.since;if(sentEx.has(key))continue;sentEx.add(key);
   const c=S.chal.find(z=>z.id===id);
@@ -471,7 +473,7 @@ function tickDeadline(){const g=cur(),b=$('cd'),d=deadline();
  if(!g||g.status==='ended'||d==null||!S.board.started){b.classList.add('hide');return}
  const left=d-Date.now();b.classList.remove('hide');b.textContent=left>0?'\u23F1 Ends in '+fmtLeft(left):'\u23F1 Time is up';
  /* whoever has the game open ends it; the host goes first, others wait a few seconds in case the host's page is closed */
- if(left<=-(S.host?0:4000)&&!ending&&S.db&&S.gid){ending=true;finishGame(d,true).finally(()=>{ending=false;setTimeout(()=>{if(cur()&&cur().status!=='ended')ending=false},5000)})}}
+ if(left<=-(S.host?0:4000)&&!ending&&S.db&&S.gid&&!VIEW()){ending=true;finishGame(d,true).finally(()=>{ending=false;setTimeout(()=>{if(cur()&&cur().status!=='ended')ending=false},5000)})}}
 setInterval(tickDeadline,1000);
 /* ---- host: end time and Get here! switch ---- */
 const pad2=n=>String(n).padStart(2,'0'),dtLocal=ms=>{const d=new Date(ms);return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate())+'T'+pad2(d.getHours())+':'+pad2(d.getMinutes())};
